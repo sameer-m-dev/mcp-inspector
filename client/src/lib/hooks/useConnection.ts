@@ -49,7 +49,8 @@ import { InspectorConfig } from "../configurationTypes";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 
 interface UseConnectionOptions {
-  transportType: "stdio" | "sse" | "streamable-http";
+  // BOLTIC: Not required
+  transportType: "streamable-http";
   command: string;
   args: string;
   sseUrl: string;
@@ -347,48 +348,48 @@ export function useConnection({
 
       let mcpProxyServerUrl;
       switch (transportType) {
-        case "stdio":
-          mcpProxyServerUrl = new URL(`${getMCPProxyAddress(config)}/stdio`);
-          mcpProxyServerUrl.searchParams.append("command", command);
-          mcpProxyServerUrl.searchParams.append("args", args);
-          mcpProxyServerUrl.searchParams.append("env", JSON.stringify(env));
-          transportOptions = {
-            authProvider: serverAuthProvider,
-            eventSourceInit: {
-              fetch: (
-                url: string | URL | globalThis.Request,
-                init?: RequestInit,
-              ) =>
-                fetch(url, {
-                  ...init,
-                  headers: { ...headers, ...proxyHeaders },
-                }),
-            },
-            requestInit: {
-              headers: { ...headers, ...proxyHeaders },
-            },
-          };
-          break;
-
-        case "sse":
-          mcpProxyServerUrl = new URL(`${getMCPProxyAddress(config)}/sse`);
-          mcpProxyServerUrl.searchParams.append("url", sseUrl);
-          transportOptions = {
-            eventSourceInit: {
-              fetch: (
-                url: string | URL | globalThis.Request,
-                init?: RequestInit,
-              ) =>
-                fetch(url, {
-                  ...init,
-                  headers: { ...headers, ...proxyHeaders },
-                }),
-            },
-            requestInit: {
-              headers: { ...headers, ...proxyHeaders },
-            },
-          };
-          break;
+        // BOLTIC: Not required
+        // case "stdio":
+        //   mcpProxyServerUrl = new URL(`${getMCPProxyAddress(config)}/stdio`);
+        //   mcpProxyServerUrl.searchParams.append("command", command);
+        //   mcpProxyServerUrl.searchParams.append("args", args);
+        //   mcpProxyServerUrl.searchParams.append("env", JSON.stringify(env));
+        //   transportOptions = {
+        //     authProvider: serverAuthProvider,
+        //     eventSourceInit: {
+        //       fetch: (
+        //         url: string | URL | globalThis.Request,
+        //         init?: RequestInit,
+        //       ) =>
+        //         fetch(url, {
+        //           ...init,
+        //           headers: { ...headers, ...proxyHeaders },
+        //         }),
+        //     },
+        //     requestInit: {
+        //       headers: { ...headers, ...proxyHeaders },
+        //     },
+        //   };
+        //   break;
+        // case "sse":
+        //   mcpProxyServerUrl = new URL(`${getMCPProxyAddress(config)}/sse`);
+        //   mcpProxyServerUrl.searchParams.append("url", sseUrl);
+        //   transportOptions = {
+        //     eventSourceInit: {
+        //       fetch: (
+        //         url: string | URL | globalThis.Request,
+        //         init?: RequestInit,
+        //       ) =>
+        //         fetch(url, {
+        //           ...init,
+        //           headers: { ...headers, ...proxyHeaders },
+        //         }),
+        //     },
+        //     requestInit: {
+        //       headers: { ...headers, ...proxyHeaders },
+        //     },
+        //   };
+        //   break;
 
         case "streamable-http":
           mcpProxyServerUrl = new URL(`${getMCPProxyAddress(config)}/mcp`);

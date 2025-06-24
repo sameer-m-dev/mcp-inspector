@@ -94,9 +94,10 @@ const App = () => {
   const [args, setArgs] = useState<string>(getInitialArgs);
 
   const [sseUrl, setSseUrl] = useState<string>(getInitialSseUrl);
-  const [transportType, setTransportType] = useState<
-    "stdio" | "sse" | "streamable-http"
-  >(getInitialTransportType);
+  // BOLTIC: Only streamable-http is supported
+  const [transportType, setTransportType] = useState<"streamable-http">(
+    getInitialTransportType,
+  );
   const [logLevel, setLogLevel] = useState<LoggingLevel>("debug");
   const [notifications, setNotifications] = useState<ServerNotification[]>([]);
   const [stdErrNotifications, setStdErrNotifications] = useState<
@@ -158,7 +159,7 @@ const App = () => {
   const [nextToolCursor, setNextToolCursor] = useState<string | undefined>();
   const progressTokenRef = useRef(0);
 
-  const { height: historyPaneHeight, handleDragStart } = useDraggablePane(300);
+  const { height: historyPaneHeight, handleDragStart } = useDraggablePane(225);
   const {
     width: sidebarWidth,
     isDragging: isSidebarDragging,
@@ -696,7 +697,8 @@ const App = () => {
               onValueChange={(value) => (window.location.hash = value)}
             >
               <TabsList className="mb-4 py-0">
-                <TabsTrigger
+                {/* BOLTIC: Not required */}
+                {/* <TabsTrigger
                   value="resources"
                   disabled={!serverCapabilities?.resources}
                 >
@@ -709,7 +711,7 @@ const App = () => {
                 >
                   <MessageSquare className="w-4 h-4 mr-2" />
                   Prompts
-                </TabsTrigger>
+                </TabsTrigger> */}
                 <TabsTrigger
                   value="tools"
                   disabled={!serverCapabilities?.tools}
@@ -721,7 +723,8 @@ const App = () => {
                   <Bell className="w-4 h-4 mr-2" />
                   Ping
                 </TabsTrigger>
-                <TabsTrigger value="sampling" className="relative">
+                {/* BOLTIC: Not required */}
+                {/* <TabsTrigger value="sampling" className="relative">
                   <Hash className="w-4 h-4 mr-2" />
                   Sampling
                   {pendingSampleRequests.length > 0 && (
@@ -737,7 +740,7 @@ const App = () => {
                 <TabsTrigger value="auth">
                   <Key className="w-4 h-4 mr-2" />
                   Auth
-                </TabsTrigger>
+                </TabsTrigger> */}
               </TabsList>
 
               <div className="w-full">
@@ -901,9 +904,10 @@ const App = () => {
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-4">
               <p className="text-lg text-gray-500 dark:text-gray-400">
-                Connect to an MCP server to start inspecting
+                Connect to your MCP server to start inspecting
               </p>
-              <div className="flex items-center gap-2">
+              {/* BOLTIC: Not required */}
+              {/* <div className="flex items-center gap-2">
                 <p className="text-sm text-muted-foreground">
                   Need to configure authentication?
                 </p>
@@ -914,7 +918,7 @@ const App = () => {
                 >
                   Open Auth Settings
                 </Button>
-              </div>
+              </div> */}
             </div>
           )}
         </div>

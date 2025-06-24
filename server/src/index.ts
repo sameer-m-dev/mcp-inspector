@@ -92,7 +92,7 @@ const serverTransports: Map<string, Transport> = new Map<string, Transport>(); /
 // Use provided token from environment or generate a new one
 const sessionToken =
   process.env.MCP_PROXY_TOKEN || randomBytes(32).toString("hex");
-const authDisabled = !!process.env.DANGEROUSLY_OMIT_AUTH;
+const authDisabled = true; // BOTLIC: Auth not required
 
 // Origin validation middleware to prevent DNS rebinding attacks
 const originValidationMiddleware = (
@@ -100,26 +100,26 @@ const originValidationMiddleware = (
   res: express.Response,
   next: express.NextFunction,
 ) => {
-  const origin = req.headers.origin;
+  // BOLTIC: Not required
+  // const origin = req.headers.origin;
+  // // Default origins based on CLIENT_PORT or use environment variable
+  // const clientPort = process.env.CLIENT_PORT || "6274";
+  // const defaultOrigins = [
+  //   `http://localhost:${clientPort}`,
+  //   `http://127.0.0.1:${clientPort}`,
+  // ];
+  // const allowedOrigins =
+  //   process.env.ALLOWED_ORIGINS?.split(",") || defaultOrigins;
 
-  // Default origins based on CLIENT_PORT or use environment variable
-  const clientPort = process.env.CLIENT_PORT || "6274";
-  const defaultOrigins = [
-    `http://localhost:${clientPort}`,
-    `http://127.0.0.1:${clientPort}`,
-  ];
-  const allowedOrigins =
-    process.env.ALLOWED_ORIGINS?.split(",") || defaultOrigins;
-
-  if (origin && !allowedOrigins.includes(origin)) {
-    console.error(`Invalid origin: ${origin}`);
-    res.status(403).json({
-      error: "Forbidden - invalid origin",
-      message:
-        "Request blocked to prevent DNS rebinding attacks. Configure allowed origins via environment variable.",
-    });
-    return;
-  }
+  // if (origin && !allowedOrigins.includes(origin)) {
+  //   console.error(`Invalid origin: ${origin}`);
+  //   res.status(403).json({
+  //     error: "Forbidden - invalid origin",
+  //     message:
+  //       "Request blocked to prevent DNS rebinding attacks. Configure allowed origins via environment variable.",
+  //   });
+  //   return;
+  // }
   next();
 };
 
@@ -531,28 +531,29 @@ app.get("/config", originValidationMiddleware, authMiddleware, (req, res) => {
 });
 
 const PORT = parseInt(process.env.PORT || "6277", 10);
-const HOST = process.env.HOST || "127.0.0.1";
+const HOST = process.env.HOST || "0.0.0.0";
 
 const server = app.listen(PORT, HOST);
 server.on("listening", () => {
   console.log(`⚙️ Proxy server listening on ${HOST}:${PORT}`);
-  if (!authDisabled) {
-    console.log(`🔑 Session token: ${sessionToken}`);
-    console.log(
-      `Use this token to authenticate requests or set DANGEROUSLY_OMIT_AUTH=true to disable auth`,
-    );
+  // BOLTIC: Auth not required
+  // if (!authDisabled) {
+  //   console.log(`🔑 Session token: ${sessionToken}`);
+  //   console.log(
+  //     `Use this token to authenticate requests or set DANGEROUSLY_OMIT_AUTH=true to disable auth`,
+  //   );
 
-    // Display clickable URL with pre-filled token
-    const clientPort = process.env.CLIENT_PORT || "6274";
-    const clientUrl = `http://localhost:${clientPort}/?MCP_PROXY_AUTH_TOKEN=${sessionToken}`;
-    console.log(
-      `\n🔗 Open inspector with token pre-filled:\n   ${clientUrl}\n`,
-    );
-  } else {
-    console.log(
-      `⚠️  WARNING: Authentication is disabled. This is not recommended.`,
-    );
-  }
+  //   // Display clickable URL with pre-filled token
+  //   const clientPort = process.env.CLIENT_PORT || "6274";
+  //   const clientUrl = `http://localhost:${clientPort}/?MCP_PROXY_AUTH_TOKEN=${sessionToken}`;
+  //   console.log(
+  //     `\n🔗 Open inspector with token pre-filled:\n   ${clientUrl}\n`,
+  //   );
+  // } else {
+  //   console.log(
+  //     `⚠️  WARNING: Authentication is disabled. This is not recommended.`,
+  //   );
+  // }
 });
 server.on("error", (err) => {
   if (err.message.includes(`EADDRINUSE`)) {

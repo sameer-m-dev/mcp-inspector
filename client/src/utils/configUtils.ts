@@ -5,10 +5,11 @@ import {
 } from "@/lib/constants";
 
 export const getMCPProxyAddress = (config: InspectorConfig): string => {
-  const proxyFullAddress = config.MCP_PROXY_FULL_ADDRESS.value as string;
-  if (proxyFullAddress) {
-    return proxyFullAddress;
-  }
+  // BOLTIC: Not required
+  // const proxyFullAddress = config.MCP_PROXY_FULL_ADDRESS.value as string;
+  // if (proxyFullAddress) {
+  //   return proxyFullAddress;
+  // }
   return `${window.location.protocol}//${window.location.hostname}:${DEFAULT_MCP_PROXY_LISTEN_PORT}`;
 };
 
@@ -34,8 +35,13 @@ export const getMCPProxyAuthToken = (
   token: string;
   header: string;
 } => {
+  // BOLTIC: Not required
+  // return {
+  //   token: config.MCP_PROXY_AUTH_TOKEN.value as string,
+  //   header: "X-MCP-Proxy-Auth",
+  // };
   return {
-    token: config.MCP_PROXY_AUTH_TOKEN.value as string,
+    token: "",
     header: "X-MCP-Proxy-Auth",
   };
 };
@@ -49,26 +55,29 @@ const getSearchParam = (key: string): string | null => {
   }
 };
 
-export const getInitialTransportType = ():
-  | "stdio"
-  | "sse"
-  | "streamable-http" => {
+// BOLTIC: Only streamable-http is supported
+export const getInitialTransportType = (): "streamable-http" => {
   const param = getSearchParam("transport");
-  if (param === "stdio" || param === "sse" || param === "streamable-http") {
+  if (param === "streamable-http") {
     return param;
   }
   return (
-    (localStorage.getItem("lastTransportType") as
-      | "stdio"
-      | "sse"
-      | "streamable-http") || "stdio"
+    (localStorage.getItem("lastTransportType") as "streamable-http") ||
+    "streamable-http"
   );
 };
 
 export const getInitialSseUrl = (): string => {
   const param = getSearchParam("serverUrl");
   if (param) return param;
-  return localStorage.getItem("lastSseUrl") || "http://localhost:3001/sse";
+  const urlParams = new URLSearchParams(window.location.search);
+  const mcpServerUrl = urlParams.get("mcp_server_url");
+
+  return (
+    mcpServerUrl ||
+    localStorage.getItem("lastSseUrl") ||
+    "http://localhost:8080/mcp"
+  );
 };
 
 export const getInitialCommand = (): string => {
@@ -136,6 +145,10 @@ export const initializeInspectorConfig = (
 
   // Ensure all config items have the latest labels/descriptions from defaults
   for (const [key, value] of Object.entries(baseConfig)) {
+    // BOLTIC: Change
+    if (!DEFAULT_INSPECTOR_CONFIG[key as keyof InspectorConfig]) {
+      continue;
+    }
     baseConfig[key as keyof InspectorConfig] = {
       ...value,
       label: DEFAULT_INSPECTOR_CONFIG[key as keyof InspectorConfig].label,

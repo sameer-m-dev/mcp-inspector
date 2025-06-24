@@ -45,7 +45,7 @@ async function startDevServer(serverOptions) {
       server.subscribe({
         complete: () => resolve(false),
         error: () => resolve(false),
-        next: () => {}, // We're using echoOutput
+        next: () => { }, // We're using echoOutput
       });
     }),
     delay(3000).then(() => true),
@@ -118,10 +118,11 @@ async function startDevClient(clientOptions) {
       : `http://127.0.0.1:${CLIENT_PORT}/?MCP_PROXY_AUTH_TOKEN=${sessionToken}`;
 
     // Give vite time to start before opening browser
-    setTimeout(() => {
-      open(url);
-      console.log(`\n🔗 Opening browser at: ${url}\n`);
-    }, 3000);
+    // BOLTIC: Not required
+    // setTimeout(() => {
+    //   open(url);
+    //   console.log(`\n🔗 Opening browser at: ${url}\n`);
+    // }, 3000);
   }
 
   await new Promise((resolve) => {
@@ -133,7 +134,7 @@ async function startDevClient(clientOptions) {
         }
         resolve(null);
       },
-      next: () => {}, // We're using echoOutput
+      next: () => { }, // We're using echoOutput
     });
   });
 }
@@ -214,7 +215,7 @@ async function main() {
 
   // Generate session token for authentication
   const sessionToken = randomBytes(32).toString("hex");
-  const authDisabled = !!process.env.DANGEROUSLY_OMIT_AUTH;
+  const authDisabled = true // BOLTIC: Auth not required
 
   const abort = new AbortController();
 
@@ -243,7 +244,7 @@ async function main() {
 
     server = result.server;
     serverOk = result.serverOk;
-  } catch (error) {}
+  } catch (error) { }
 
   if (serverOk) {
     try {

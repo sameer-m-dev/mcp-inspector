@@ -32,7 +32,8 @@ import {
 import { InspectorConfig } from "@/lib/configurationTypes";
 import { ConnectionStatus } from "@/lib/constants";
 import useTheme from "../lib/hooks/useTheme";
-import { version } from "../../../package.json";
+// BOLTIC: Not required
+// import { version } from "../../../package.json";
 import {
   Tooltip,
   TooltipTrigger,
@@ -42,8 +43,8 @@ import { useToast } from "../lib/hooks/useToast";
 
 interface SidebarProps {
   connectionStatus: ConnectionStatus;
-  transportType: "stdio" | "sse" | "streamable-http";
-  setTransportType: (type: "stdio" | "sse" | "streamable-http") => void;
+  transportType: "streamable-http";
+  setTransportType: (type: "streamable-http") => void;
   command: string;
   setCommand: (command: string) => void;
   args: string;
@@ -116,20 +117,6 @@ const Sidebar = ({
 
   // Shared utility function to generate server config
   const generateServerConfig = useCallback(() => {
-    if (transportType === "stdio") {
-      return {
-        command,
-        args: args.trim() ? args.split(/\s+/) : [],
-        env: { ...env },
-      };
-    }
-    if (transportType === "sse") {
-      return {
-        type: "sse",
-        url: sseUrl,
-        note: "For SSE connections, add this URL directly in your MCP Client",
-      };
-    }
     if (transportType === "streamable-http") {
       return {
         type: "streamable-http",
@@ -169,10 +156,9 @@ const Sidebar = ({
 
           toast({
             title: "Config entry copied",
+            // BOLTIC: Only required for streamable-http
             description:
-              transportType === "stdio"
-                ? "Server configuration has been copied to clipboard. Add this to your mcp.json inside the 'mcpServers' object with your preferred server name."
-                : "SSE URL has been copied. Use this URL directly in your MCP Client.",
+              "URL has been copied. Use this URL directly in your MCP Client.",
           });
 
           setTimeout(() => {
@@ -215,13 +201,12 @@ const Sidebar = ({
 
   return (
     <div className="bg-card border-r border-border flex flex-col h-full">
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-border">
+      {/* BOLTIC: Not required */}
+      {/* <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-border">
         <div className="flex items-center">
-          <h1 className="ml-2 text-lg font-semibold">
-            MCP Inspector v{version}
-          </h1>
+          <h1 className="ml-2 text-lg font-semibold">Boltic MCP Inspector</h1>
         </div>
-      </div>
+      </div> */}
 
       <div className="p-4 flex-1 overflow-auto">
         <div className="space-y-4">
@@ -234,7 +219,7 @@ const Sidebar = ({
             </label>
             <Select
               value={transportType}
-              onValueChange={(value: "stdio" | "sse" | "streamable-http") =>
+              onValueChange={(value: "streamable-http") =>
                 setTransportType(value)
               }
             >
@@ -242,44 +227,15 @@ const Sidebar = ({
                 <SelectValue placeholder="Select transport type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="stdio">STDIO</SelectItem>
-                <SelectItem value="sse">SSE</SelectItem>
+                {/* BOLTIC: Not required */}
+                {/* <SelectItem value="stdio">STDIO</SelectItem>
+                <SelectItem value="sse">SSE</SelectItem> */}
                 <SelectItem value="streamable-http">Streamable HTTP</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {transportType === "stdio" ? (
-            <>
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="command-input">
-                  Command
-                </label>
-                <Input
-                  id="command-input"
-                  placeholder="Command"
-                  value={command}
-                  onChange={(e) => setCommand(e.target.value)}
-                  className="font-mono"
-                />
-              </div>
-              <div className="space-y-2">
-                <label
-                  className="text-sm font-medium"
-                  htmlFor="arguments-input"
-                >
-                  Arguments
-                </label>
-                <Input
-                  id="arguments-input"
-                  placeholder="Arguments (space-separated)"
-                  value={args}
-                  onChange={(e) => setArgs(e.target.value)}
-                  className="font-mono"
-                />
-              </div>
-            </>
-          ) : (
+          {transportType === "streamable-http" && (
             <>
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor="sse-url-input">
@@ -356,133 +312,9 @@ const Sidebar = ({
             </>
           )}
 
-          {transportType === "stdio" && (
-            <div className="space-y-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowEnvVars(!showEnvVars)}
-                className="flex items-center w-full"
-                data-testid="env-vars-button"
-                aria-expanded={showEnvVars}
-              >
-                {showEnvVars ? (
-                  <ChevronDown className="w-4 h-4 mr-2" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 mr-2" />
-                )}
-                Environment Variables
-              </Button>
-              {showEnvVars && (
-                <div className="space-y-2">
-                  {Object.entries(env).map(([key, value], idx) => (
-                    <div key={idx} className="space-y-2 pb-4">
-                      <div className="flex gap-2">
-                        <Input
-                          aria-label={`Environment variable key ${idx + 1}`}
-                          placeholder="Key"
-                          value={key}
-                          onChange={(e) => {
-                            const newKey = e.target.value;
-                            const newEnv = Object.entries(env).reduce(
-                              (acc, [k, v]) => {
-                                if (k === key) {
-                                  acc[newKey] = value;
-                                } else {
-                                  acc[k] = v;
-                                }
-                                return acc;
-                              },
-                              {} as Record<string, string>,
-                            );
-                            setEnv(newEnv);
-                            setShownEnvVars((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(key)) {
-                                next.delete(key);
-                                next.add(newKey);
-                              }
-                              return next;
-                            });
-                          }}
-                          className="font-mono"
-                        />
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className="h-9 w-9 p-0 shrink-0"
-                          onClick={() => {
-                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                            const { [key]: _removed, ...rest } = env;
-                            setEnv(rest);
-                          }}
-                        >
-                          ×
-                        </Button>
-                      </div>
-                      <div className="flex gap-2">
-                        <Input
-                          aria-label={`Environment variable value ${idx + 1}`}
-                          type={shownEnvVars.has(key) ? "text" : "password"}
-                          placeholder="Value"
-                          value={value}
-                          onChange={(e) => {
-                            const newEnv = { ...env };
-                            newEnv[key] = e.target.value;
-                            setEnv(newEnv);
-                          }}
-                          className="font-mono"
-                        />
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-9 w-9 p-0 shrink-0"
-                          onClick={() => {
-                            setShownEnvVars((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(key)) {
-                                next.delete(key);
-                              } else {
-                                next.add(key);
-                              }
-                              return next;
-                            });
-                          }}
-                          aria-label={
-                            shownEnvVars.has(key) ? "Hide value" : "Show value"
-                          }
-                          aria-pressed={shownEnvVars.has(key)}
-                          title={
-                            shownEnvVars.has(key) ? "Hide value" : "Show value"
-                          }
-                        >
-                          {shownEnvVars.has(key) ? (
-                            <Eye className="h-4 w-4" aria-hidden="true" />
-                          ) : (
-                            <EyeOff className="h-4 w-4" aria-hidden="true" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  <Button
-                    variant="outline"
-                    className="w-full mt-2"
-                    onClick={() => {
-                      const key = "";
-                      const newEnv = { ...env };
-                      newEnv[key] = "";
-                      setEnv(newEnv);
-                    }}
-                  >
-                    Add Environment Variable
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Always show both copy buttons for all transport types */}
-          <div className="grid grid-cols-2 gap-2 mt-2">
+          {/* BOLTIC: Not required */}
+          {/* <div className="grid grid-cols-2 gap-2 mt-2">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -519,7 +351,7 @@ const Sidebar = ({
               </TooltipTrigger>
               <TooltipContent>Copy Servers File</TooltipContent>
             </Tooltip>
-          </div>
+          </div> */}
 
           {/* Configuration */}
           <div className="space-y-2">
@@ -631,7 +463,7 @@ const Sidebar = ({
                   }}
                 >
                   <RotateCcw className="w-4 h-4 mr-2" />
-                  {transportType === "stdio" ? "Restart" : "Reconnect"}
+                  "Reconnect"
                 </Button>
                 <Button onClick={onDisconnect}>
                   <RefreshCwOff className="w-4 h-4 mr-2" />
@@ -667,11 +499,12 @@ const Sidebar = ({
                     case "connected":
                       return "Connected";
                     case "error": {
-                      const hasProxyToken = config.MCP_PROXY_AUTH_TOKEN?.value;
-                      if (!hasProxyToken) {
-                        return "Connection Error - Did you add the proxy session token in Configuration?";
-                      }
-                      return "Connection Error - Check if your MCP server is running and proxy token is correct";
+                      // BOLTIC: Not required
+                      // const hasProxyToken = config.MCP_PROXY_AUTH_TOKEN?.value;
+                      // if (!hasProxyToken) {
+                      //   return "Connection Error - Did you add the proxy session token in Configuration?";
+                      // }
+                      return "Connection Error - Check if your MCP server is running";
                     }
                     case "error-connecting-to-proxy":
                       return "Error Connecting to MCP Inspector Proxy - Check Console logs";
@@ -742,7 +575,8 @@ const Sidebar = ({
           </div>
         </div>
       </div>
-      <div className="p-4 border-t">
+      {/* BOLTIC: Not required */}
+      {/* <div className="p-4 border-t">
         <div className="flex items-center justify-between">
           <Select
             value={theme}
@@ -794,7 +628,7 @@ const Sidebar = ({
             </Button>
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };

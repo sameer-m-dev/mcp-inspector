@@ -35,7 +35,7 @@ export const DEFAULT_INSPECTOR_CONFIG: InspectorConfig = {
   MCP_SERVER_REQUEST_TIMEOUT: {
     label: "Request Timeout",
     description: "Timeout for requests to the MCP server (ms)",
-    value: 10000,
+    value: 60000,
     is_session_item: false,
   },
   MCP_REQUEST_TIMEOUT_RESET_ON_PROGRESS: {
@@ -48,21 +48,22 @@ export const DEFAULT_INSPECTOR_CONFIG: InspectorConfig = {
     label: "Maximum Total Timeout",
     description:
       "Maximum total timeout for requests sent to the MCP server (ms) (Use with progress notifications)",
-    value: 60000,
+    value: 90000,
     is_session_item: false,
   },
-  MCP_PROXY_FULL_ADDRESS: {
-    label: "Inspector Proxy Address",
-    description:
-      "Set this if you are running the MCP Inspector Proxy on a non-default address. Example: http://10.1.1.22:5577",
-    value: "",
-    is_session_item: false,
-  },
-  MCP_PROXY_AUTH_TOKEN: {
-    label: "Proxy Session Token",
-    description:
-      "Session token for authenticating with the MCP Proxy Server (displayed in proxy console on startup)",
-    value: "",
-    is_session_item: true,
-  },
+  // BOLTIC: Not required
+  // MCP_PROXY_FULL_ADDRESS: {
+  //   label: "Inspector Proxy Address",
+  //   description:
+  //     "Set this if you are running the MCP Inspector Proxy on a non-default address. Example: http://10.1.1.22:5577",
+  //   value: "",
+  //   is_session_item: false,
+  // },
+  // MCP_PROXY_AUTH_TOKEN: {
+  //   label: "Proxy Session Token",
+  //   description:
+  //     "Session token for authenticating with the MCP Proxy Server (displayed in proxy console on startup)",
+  //   value: "",
+  //   is_session_item: true,
+  // },
 } as const;
