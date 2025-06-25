@@ -11,7 +11,7 @@ const distPath = join(__dirname, "../dist");
 const server = http.createServer((request, response) => {
   // BOLTIC: Change
   // Health check endpoints
-  if (request.url.pathname === '/_healthz' || request.url.pathname === '/_readyz') {
+  if (request.url?.includes('/_healthz') || request.url?.includes('/_readyz')) {
     response.writeHead(200, {
       'Content-Type': 'application/json',
       'Cache-Control': 'no-cache, no-store, max-age=0'

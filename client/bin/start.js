@@ -206,12 +206,12 @@ async function main() {
 
   const CLIENT_PORT = process.env.CLIENT_PORT ?? "6274";
   const SERVER_PORT = process.env.SERVER_PORT ?? "6277";
-  const SERVER_MODE = process.env.SERVER_MODE ?? "client";
+  const SERVER_TYPE = process.env.SERVER_TYPE ?? "client";
 
   console.log(
     isDev
-      ? `Starting MCP inspector in ${SERVER_MODE} and development mode...`
-      : `Starting MCP inspector in ${SERVER_MODE} mode...`,
+      ? `Starting MCP inspector in ${SERVER_TYPE} and development mode...`
+      : `Starting MCP inspector in ${SERVER_TYPE} mode...`,
   );
 
   // Generate session token for authentication
@@ -238,7 +238,7 @@ async function main() {
     };
 
 
-    if (SERVER_MODE === "proxy") {
+    if (SERVER_TYPE === "proxy") {
       const result = isDev
         ? await startDevServer(serverOptions)
         : await startProdServer(serverOptions);
@@ -247,29 +247,30 @@ async function main() {
       } else {
         console.error("Proxy server failed to start");
       }
+    } else if (SERVER_TYPE === "client") {
+      try {
+        const clientOptions = {
+          CLIENT_PORT,
+          authDisabled,
+          sessionToken,
+          abort,
+          cancelled,
+        };
+
+        await (isDev
+          ? startDevClient(clientOptions)
+          : startProdClient(clientOptions));
+      } catch (e) {
+        if (!cancelled || process.env.DEBUG) throw e;
+      }
+    } else {
+      console.error("Invalid SERVER_TYPE. Please set SERVER_TYPE to 'proxy' or 'client'.");
     }
-
-  } catch (error) { }
-
-  if (SERVER_MODE === "client") {
-    try {
-      const clientOptions = {
-        CLIENT_PORT,
-        authDisabled,
-        sessionToken,
-        abort,
-        cancelled,
-      };
-
-      await (isDev
-        ? startDevClient(clientOptions)
-        : startProdClient(clientOptions));
-    } catch (e) {
-      if (!cancelled || process.env.DEBUG) throw e;
-    }
+    return 0;
+  } catch (e) {
+    console.error(e);
+    process.exit(1);
   }
-
-  return 0;
 }
 
 main()

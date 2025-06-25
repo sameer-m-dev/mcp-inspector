@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import cors from "cors";
+import morgan from "morgan";
 import { parseArgs } from "node:util";
 import { parse as shellParseArgs } from "shell-quote";
 
@@ -85,6 +86,15 @@ app.use((req, res, next) => {
   res.header("Access-Control-Expose-Headers", "mcp-session-id");
   next();
 });
+app.use(
+  morgan("combined", {
+    skip: (req) =>
+      req.url.includes("/health") ||
+      req.url.includes("/_healthz") ||
+      req.url.includes("/_readyz") ||
+      req.url.includes("/favicon.ico"),
+  }),
+);
 
 const webAppTransports: Map<string, Transport> = new Map<string, Transport>(); // Web app transports by web app sessionId
 const serverTransports: Map<string, Transport> = new Map<string, Transport>(); // Server Transports by web app sessionId
@@ -512,16 +522,22 @@ app.post(
   },
 );
 
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+  });
+});
+
 // BOLTIC: Change
 app.get("/_healthz", (req, res) => {
   res.json({
-    ok: "ok",
+    status: "ok",
   });
 });
 
 app.get("/_readyz", (req, res) => {
   res.json({
-    ok: "ok",
+    status: "ok",
   });
 });
 
@@ -538,7 +554,7 @@ app.get("/config", originValidationMiddleware, authMiddleware, (req, res) => {
   }
 });
 
-const PORT = parseInt(process.env.PORT || "6277", 10);
+const PORT = parseInt(process.env.SERVER_PORT || "6277", 10);
 const HOST = process.env.HOST || "0.0.0.0";
 
 const server = app.listen(PORT, HOST);

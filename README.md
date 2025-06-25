@@ -19,13 +19,13 @@ npm install
 - Run client
 
 ```bash
-SERVER_MODE=client npm start
+SERVER_TYPE=client npm start
 ```
 
 - Run proxy
 
 ```bash
-SERVER_MODE=proxy npm start
+SERVER_TYPE=proxy npm start
 ```
 
 ### Docker build

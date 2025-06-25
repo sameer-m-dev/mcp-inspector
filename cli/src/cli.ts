@@ -70,9 +70,9 @@ async function runWebClient(args: Args): Promise<void> {
   // BOLTIC: Change
   const CLIENT_PORT: string = process.env.CLIENT_PORT ?? "6274";
   const SERVER_PORT: string = process.env.SERVER_PORT ?? "6277";
-  const SERVER_MODE: string = process.env.SERVER_MODE ?? "proxy";
+  const SERVER_TYPE: string = process.env.SERVER_TYPE ?? "proxy";
 
-  console.log(`Starting MCP inspector in ${SERVER_MODE} mode...`);
+  console.log(`Starting MCP inspector in ${SERVER_TYPE} mode...`);
 
   const abort = new AbortController();
   let cancelled: boolean = false;
@@ -84,7 +84,7 @@ async function runWebClient(args: Args): Promise<void> {
   let server: ReturnType<typeof spawnPromise>;
   let serverOk: unknown;
 
-  if (SERVER_MODE === "proxy") {
+  if (SERVER_TYPE === "proxy") {
     try {
       server = spawnPromise(
         "node",
@@ -109,7 +109,7 @@ async function runWebClient(args: Args): Promise<void> {
     } catch (error) {}
   }
 
-  if (SERVER_MODE === "client") {
+  if (SERVER_TYPE === "client") {
     try {
       await spawnPromise("node", [inspectorClientPath], {
         env: { ...process.env, PORT: CLIENT_PORT },
