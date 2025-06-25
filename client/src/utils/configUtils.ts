@@ -10,7 +10,11 @@ export const getMCPProxyAddress = (config: InspectorConfig): string => {
   // if (proxyFullAddress) {
   //   return proxyFullAddress;
   // }
-  return `${window.location.protocol}//${window.location.hostname}:${DEFAULT_MCP_PROXY_LISTEN_PORT}`;
+  // BOLTIC: For local
+  // return `${window.location.protocol}//${window.location.hostname}:${DEFAULT_MCP_PROXY_LISTEN_PORT}`;
+
+  // BOLTIC: For cloud
+  return `${window.location.protocol}/${window.location.hostname}/proxy`;
 };
 
 export const getMCPServerRequestTimeout = (config: InspectorConfig): number => {

@@ -366,126 +366,127 @@ app.delete(
   },
 );
 
-app.get(
-  "/stdio",
-  originValidationMiddleware,
-  authMiddleware,
-  async (req, res) => {
-    try {
-      console.log("New STDIO connection request");
-      let serverTransport: Transport | undefined;
-      try {
-        serverTransport = await createTransport(req);
-        console.log("Created server transport");
-      } catch (error) {
-        if (error instanceof SseError && error.code === 401) {
-          console.error(
-            "Received 401 Unauthorized from MCP server. Authentication failure.",
-          );
-          res.status(401).json(error);
-          return;
-        }
+// BOLTIC - Not required
+// app.get(
+//   "/stdio",
+//   originValidationMiddleware,
+//   authMiddleware,
+//   async (req, res) => {
+//     try {
+//       console.log("New STDIO connection request");
+//       let serverTransport: Transport | undefined;
+//       try {
+//         serverTransport = await createTransport(req);
+//         console.log("Created server transport");
+//       } catch (error) {
+//         if (error instanceof SseError && error.code === 401) {
+//           console.error(
+//             "Received 401 Unauthorized from MCP server. Authentication failure.",
+//           );
+//           res.status(401).json(error);
+//           return;
+//         }
 
-        throw error;
-      }
+//         throw error;
+//       }
 
-      const webAppTransport = new SSEServerTransport("/message", res);
-      console.log("Created client transport");
+//       const webAppTransport = new SSEServerTransport("/message", res);
+//       console.log("Created client transport");
 
-      webAppTransports.set(webAppTransport.sessionId, webAppTransport);
-      serverTransports.set(webAppTransport.sessionId, serverTransport);
+//       webAppTransports.set(webAppTransport.sessionId, webAppTransport);
+//       serverTransports.set(webAppTransport.sessionId, serverTransport);
 
-      await webAppTransport.start();
+//       await webAppTransport.start();
 
-      (serverTransport as StdioClientTransport).stderr!.on("data", (chunk) => {
-        if (chunk.toString().includes("MODULE_NOT_FOUND")) {
-          webAppTransport.send({
-            jsonrpc: "2.0",
-            method: "notifications/stderr",
-            params: {
-              content: "Command not found, transports removed",
-            },
-          });
-          webAppTransport.close();
-          serverTransport.close();
-          webAppTransports.delete(webAppTransport.sessionId);
-          serverTransports.delete(webAppTransport.sessionId);
-          console.error("Command not found, transports removed");
-        } else {
-          webAppTransport.send({
-            jsonrpc: "2.0",
-            method: "notifications/stderr",
-            params: {
-              content: chunk.toString(),
-            },
-          });
-        }
-      });
+//       (serverTransport as StdioClientTransport).stderr!.on("data", (chunk) => {
+//         if (chunk.toString().includes("MODULE_NOT_FOUND")) {
+//           webAppTransport.send({
+//             jsonrpc: "2.0",
+//             method: "notifications/stderr",
+//             params: {
+//               content: "Command not found, transports removed",
+//             },
+//           });
+//           webAppTransport.close();
+//           serverTransport.close();
+//           webAppTransports.delete(webAppTransport.sessionId);
+//           serverTransports.delete(webAppTransport.sessionId);
+//           console.error("Command not found, transports removed");
+//         } else {
+//           webAppTransport.send({
+//             jsonrpc: "2.0",
+//             method: "notifications/stderr",
+//             params: {
+//               content: chunk.toString(),
+//             },
+//           });
+//         }
+//       });
 
-      mcpProxy({
-        transportToClient: webAppTransport,
-        transportToServer: serverTransport,
-      });
-    } catch (error) {
-      console.error("Error in /stdio route:", error);
-      res.status(500).json(error);
-    }
-  },
-);
+//       mcpProxy({
+//         transportToClient: webAppTransport,
+//         transportToServer: serverTransport,
+//       });
+//     } catch (error) {
+//       console.error("Error in /stdio route:", error);
+//       res.status(500).json(error);
+//     }
+//   },
+// );
 
-app.get(
-  "/sse",
-  originValidationMiddleware,
-  authMiddleware,
-  async (req, res) => {
-    try {
-      console.log(
-        "New SSE connection request. NOTE: The sse transport is deprecated and has been replaced by StreamableHttp",
-      );
-      let serverTransport: Transport | undefined;
-      try {
-        serverTransport = await createTransport(req);
-      } catch (error) {
-        if (error instanceof SseError && error.code === 401) {
-          console.error(
-            "Received 401 Unauthorized from MCP server. Authentication failure.",
-          );
-          res.status(401).json(error);
-          return;
-        } else if (error instanceof SseError && error.code === 404) {
-          console.error(
-            "Received 404 not found from MCP server. Does the MCP server support SSE?",
-          );
-          res.status(404).json(error);
-          return;
-        } else if (JSON.stringify(error).includes("ECONNREFUSED")) {
-          console.error("Connection refused. Is the MCP server running?");
-          res.status(500).json(error);
-        } else {
-          throw error;
-        }
-      }
+// app.get(
+//   "/sse",
+//   originValidationMiddleware,
+//   authMiddleware,
+//   async (req, res) => {
+//     try {
+//       console.log(
+//         "New SSE connection request. NOTE: The sse transport is deprecated and has been replaced by StreamableHttp",
+//       );
+//       let serverTransport: Transport | undefined;
+//       try {
+//         serverTransport = await createTransport(req);
+//       } catch (error) {
+//         if (error instanceof SseError && error.code === 401) {
+//           console.error(
+//             "Received 401 Unauthorized from MCP server. Authentication failure.",
+//           );
+//           res.status(401).json(error);
+//           return;
+//         } else if (error instanceof SseError && error.code === 404) {
+//           console.error(
+//             "Received 404 not found from MCP server. Does the MCP server support SSE?",
+//           );
+//           res.status(404).json(error);
+//           return;
+//         } else if (JSON.stringify(error).includes("ECONNREFUSED")) {
+//           console.error("Connection refused. Is the MCP server running?");
+//           res.status(500).json(error);
+//         } else {
+//           throw error;
+//         }
+//       }
 
-      if (serverTransport) {
-        const webAppTransport = new SSEServerTransport("/message", res);
-        webAppTransports.set(webAppTransport.sessionId, webAppTransport);
-        console.log("Created client transport");
-        serverTransports.set(webAppTransport.sessionId, serverTransport!);
-        console.log("Created server transport");
+//       if (serverTransport) {
+//         const webAppTransport = new SSEServerTransport("/message", res);
+//         webAppTransports.set(webAppTransport.sessionId, webAppTransport);
+//         console.log("Created client transport");
+//         serverTransports.set(webAppTransport.sessionId, serverTransport!);
+//         console.log("Created server transport");
 
-        await webAppTransport.start();
+//         await webAppTransport.start();
 
-        mcpProxy({
-          transportToClient: webAppTransport,
-          transportToServer: serverTransport,
-        });
-      }
-    } catch (error) {
-      console.error("Error in /sse route:", error);
-      res.status(500).json(error);
-    }
-  },
-);
+//         mcpProxy({
+//           transportToClient: webAppTransport,
+//           transportToServer: serverTransport,
+//         });
+//       }
+//     } catch (error) {
+//       console.error("Error in /sse route:", error);
+//       res.status(500).json(error);
+//     }
+//   },
+// );
 
 app.post(
   "/message",

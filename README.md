@@ -4,7 +4,31 @@ The MCP inspector is a developer tool for testing and debugging MCP servers.
 
 ![MCP Inspector Screenshot](https://raw.githubusercontent.com/modelcontextprotocol/inspector/main/mcp-inspector.png)
 
-## Docker build
+## Boltic specific changes
+
+### Local development
+
+- Install dependencies
+
+```bash
+npm install
+```
+
+- Make sure you update the value returned in `getMCPProxyAddress` in `client/src/utils/configUtils.ts` accordingly
+
+- Run client
+
+```bash
+SERVER_MODE=client npm start
+```
+
+- Run proxy
+
+```bash
+SERVER_MODE=proxy npm start
+```
+
+### Docker build
 
 To build the docker image, run:
 
