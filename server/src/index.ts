@@ -511,9 +511,16 @@ app.post(
   },
 );
 
-app.get("/health", (req, res) => {
+// BOLTIC: Change
+app.get("/_healthz", (req, res) => {
   res.json({
-    status: "ok",
+    ok: "ok",
+  });
+});
+
+app.get("/_readyz", (req, res) => {
+  res.json({
+    ok: "ok",
   });
 });
 
@@ -535,7 +542,7 @@ const HOST = process.env.HOST || "0.0.0.0";
 
 const server = app.listen(PORT, HOST);
 server.on("listening", () => {
-  console.log(`⚙️ Proxy server listening on ${HOST}:${PORT}`);
+  console.log(`Proxy server listening on ${HOST}:${PORT}`);
   // BOLTIC: Auth not required
   // if (!authDisabled) {
   //   console.log(`🔑 Session token: ${sessionToken}`);

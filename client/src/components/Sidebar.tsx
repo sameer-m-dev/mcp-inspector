@@ -507,7 +507,7 @@ const Sidebar = ({
                       return "Connection Error - Check if your MCP server is running";
                     }
                     case "error-connecting-to-proxy":
-                      return "Error Connecting to MCP Inspector Proxy - Check Console logs";
+                      return "Error connecting to MCP Proxy - Please try again later";
                     default:
                       return "Disconnected";
                   }

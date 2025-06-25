@@ -4,6 +4,14 @@ The MCP inspector is a developer tool for testing and debugging MCP servers.
 
 ![MCP Inspector Screenshot](https://raw.githubusercontent.com/modelcontextprotocol/inspector/main/mcp-inspector.png)
 
+## Docker build
+
+To build the docker image, run:
+
+```bash
+docker buildx build --push --platform linux/amd64 -f Dockerfile -t harbor-core.fynd.engineering/public/mcp/inspector:latest .
+```
+
 ## Architecture Overview
 
 The MCP Inspector consists of two main components that work together:

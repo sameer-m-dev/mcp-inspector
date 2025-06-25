@@ -120,7 +120,7 @@ async function startDevClient(clientOptions) {
     // Give vite time to start before opening browser
     // BOLTIC: Not required
     // setTimeout(() => {
-    //   open(url);
+    //   
     //   console.log(`\n🔗 Opening browser at: ${url}\n`);
     // }, 3000);
   }
@@ -154,7 +154,7 @@ async function startProdClient(clientOptions) {
     const url = authDisabled
       ? `http://127.0.0.1:${CLIENT_PORT}`
       : `http://127.0.0.1:${CLIENT_PORT}/?MCP_PROXY_AUTH_TOKEN=${sessionToken}`;
-    open(url);
+
   }
 
   await spawnPromise("node", [inspectorClientPath], {
@@ -206,11 +206,12 @@ async function main() {
 
   const CLIENT_PORT = process.env.CLIENT_PORT ?? "6274";
   const SERVER_PORT = process.env.SERVER_PORT ?? "6277";
+  const SERVER_MODE = process.env.SERVER_MODE ?? "client";
 
   console.log(
     isDev
-      ? "Starting MCP inspector in development mode..."
-      : "Starting MCP inspector...",
+      ? `Starting MCP inspector in ${SERVER_MODE} and development mode...`
+      : `Starting MCP inspector in ${SERVER_MODE} mode...`,
   );
 
   // Generate session token for authentication
@@ -225,8 +226,6 @@ async function main() {
     abort.abort();
   });
 
-  let server, serverOk;
-
   try {
     const serverOptions = {
       SERVER_PORT,
@@ -238,15 +237,21 @@ async function main() {
       mcpServerArgs,
     };
 
-    const result = isDev
-      ? await startDevServer(serverOptions)
-      : await startProdServer(serverOptions);
 
-    server = result.server;
-    serverOk = result.serverOk;
+    if (SERVER_MODE === "proxy") {
+      const result = isDev
+        ? await startDevServer(serverOptions)
+        : await startProdServer(serverOptions);
+      if (result.serverOk) {
+        await result.server;
+      } else {
+        console.error("Proxy server failed to start");
+      }
+    }
+
   } catch (error) { }
 
-  if (serverOk) {
+  if (SERVER_MODE === "client") {
     try {
       const clientOptions = {
         CLIENT_PORT,

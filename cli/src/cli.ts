@@ -67,10 +67,12 @@ async function runWebClient(args: Args): Promise<void> {
     "client.js",
   );
 
+  // BOLTIC: Change
   const CLIENT_PORT: string = process.env.CLIENT_PORT ?? "6274";
   const SERVER_PORT: string = process.env.SERVER_PORT ?? "6277";
+  const SERVER_MODE: string = process.env.SERVER_MODE ?? "proxy";
 
-  console.log("Starting MCP inspector...");
+  console.log(`Starting MCP inspector in ${SERVER_MODE} mode...`);
 
   const abort = new AbortController();
   let cancelled: boolean = false;
@@ -82,30 +84,32 @@ async function runWebClient(args: Args): Promise<void> {
   let server: ReturnType<typeof spawnPromise>;
   let serverOk: unknown;
 
-  try {
-    server = spawnPromise(
-      "node",
-      [
-        inspectorServerPath,
-        ...(args.command ? [`--env`, args.command] : []),
-        ...(args.args ? [`--args=${args.args.join(" ")}`] : []),
-      ],
-      {
-        env: {
-          ...process.env,
-          PORT: SERVER_PORT,
-          MCP_ENV_VARS: JSON.stringify(args.envArgs),
+  if (SERVER_MODE === "proxy") {
+    try {
+      server = spawnPromise(
+        "node",
+        [
+          inspectorServerPath,
+          ...(args.command ? [`--env`, args.command] : []),
+          ...(args.args ? [`--args=${args.args.join(" ")}`] : []),
+        ],
+        {
+          env: {
+            ...process.env,
+            PORT: SERVER_PORT,
+            MCP_ENV_VARS: JSON.stringify(args.envArgs),
+          },
+          signal: abort.signal,
+          echoOutput: true,
         },
-        signal: abort.signal,
-        echoOutput: true,
-      },
-    );
+      );
 
-    // Make sure server started before starting client
-    serverOk = await Promise.race([server, delay(2 * 1000)]);
-  } catch (error) {}
+      // Make sure server started before starting client
+      serverOk = await Promise.race([server, delay(2 * 1000)]);
+    } catch (error) {}
+  }
 
-  if (serverOk) {
+  if (SERVER_MODE === "client") {
     try {
       await spawnPromise("node", [inspectorClientPath], {
         env: { ...process.env, PORT: CLIENT_PORT },

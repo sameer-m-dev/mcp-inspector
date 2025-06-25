@@ -22,7 +22,7 @@
     "cli"
   ],
   "scripts": {
-    "build": "npm run build-server && npm run build-client && npm run build-cli",
+    "build": "npm run build-server && npm run build-client",
     "build-server": "cd server && npm run build",
     "build-client": "cd client && npm run build",
     "build-cli": "cd cli && npm run build",
