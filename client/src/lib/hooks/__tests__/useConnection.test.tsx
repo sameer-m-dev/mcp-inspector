@@ -3,7 +3,16 @@ import { useConnection } from "../useConnection";
 import { z } from "zod";
 import { ClientRequest } from "@modelcontextprotocol/sdk/types.js";
 import { DEFAULT_INSPECTOR_CONFIG } from "../../constants";
-import { SSEClientTransportOptions } from "@modelcontextprotocol/sdk/client/sse.js";
+import {
+  SSEClientTransportOptions,
+  SseError,
+} from "@modelcontextprotocol/sdk/client/sse.js";
+import {
+  ElicitResult,
+  ElicitRequest,
+} from "@modelcontextprotocol/sdk/types.js";
+import { auth } from "@modelcontextprotocol/sdk/client/auth.js";
+import { discoverScopes } from "../../auth";
 
 // Mock fetch
 global.fetch = jest.fn().mockResolvedValue({
@@ -49,14 +58,27 @@ jest.mock("@modelcontextprotocol/sdk/client/index.js", () => ({
   Client: jest.fn().mockImplementation(() => mockClient),
 }));
 
-jest.mock("@modelcontextprotocol/sdk/client/sse.js", () => ({
-  SSEClientTransport: jest.fn((url, options) => {
-    mockSSETransport.url = url;
-    mockSSETransport.options = options;
-    return mockSSETransport;
-  }),
-  SseError: jest.fn(),
-}));
+jest.mock("@modelcontextprotocol/sdk/client/sse.js", () => {
+  // Minimal mock class that supports instanceof checks
+  class SseError extends Error {
+    code: number;
+    event: ErrorEvent;
+    constructor(code: number, message: string, event: ErrorEvent) {
+      super(message);
+      this.code = code;
+      this.event = event;
+    }
+  }
+
+  return {
+    SSEClientTransport: jest.fn((url, options) => {
+      mockSSETransport.url = url;
+      mockSSETransport.options = options;
+      return mockSSETransport;
+    }),
+    SseError,
+  };
+});
 
 jest.mock("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
   StreamableHTTPClientTransport: jest.fn((url, options) => {
@@ -81,8 +103,17 @@ jest.mock("@/lib/hooks/useToast", () => ({
 jest.mock("../../auth", () => ({
   InspectorOAuthClientProvider: jest.fn().mockImplementation(() => ({
     tokens: jest.fn().mockResolvedValue({ access_token: "mock-token" }),
+    redirectUrl: "http://localhost:3000/oauth/callback",
   })),
+  clearClientInformationFromSessionStorage: jest.fn(),
+  saveClientInformationToSessionStorage: jest.fn(),
+  discoverScopes: jest.fn(),
 }));
+
+const mockAuth = auth as jest.MockedFunction<typeof auth>;
+const mockDiscoverScopes = discoverScopes as jest.MockedFunction<
+  typeof discoverScopes
+>;
 
 describe("useConnection", () => {
   const defaultProps = {
@@ -196,6 +227,252 @@ describe("useConnection", () => {
     await expect(
       result.current.makeRequest(mockRequest, mockSchema),
     ).rejects.toThrow("MCP client not connected");
+  });
+
+  describe("Elicitation Support", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    test("declares elicitation capability during client initialization", async () => {
+      const Client = jest.requireMock(
+        "@modelcontextprotocol/sdk/client/index.js",
+      ).Client;
+
+      const { result } = renderHook(() => useConnection(defaultProps));
+
+      await act(async () => {
+        await result.current.connect();
+      });
+
+      expect(Client).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "mcp-inspector",
+          version: expect.any(String),
+        }),
+        expect.objectContaining({
+          capabilities: expect.objectContaining({
+            elicitation: {},
+          }),
+        }),
+      );
+    });
+
+    test("sets up elicitation request handler when onElicitationRequest is provided", async () => {
+      const mockOnElicitationRequest = jest.fn();
+      const propsWithElicitation = {
+        ...defaultProps,
+        onElicitationRequest: mockOnElicitationRequest,
+      };
+
+      const { result } = renderHook(() => useConnection(propsWithElicitation));
+
+      await act(async () => {
+        await result.current.connect();
+      });
+
+      const elicitRequestHandlerCall =
+        mockClient.setRequestHandler.mock.calls.find((call) => {
+          try {
+            const schema = call[0];
+            const testRequest = {
+              method: "elicitation/create",
+              params: {
+                message: "test message",
+                requestedSchema: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                  },
+                },
+              },
+            };
+            const parseResult =
+              schema.safeParse && schema.safeParse(testRequest);
+            return parseResult?.success;
+          } catch {
+            return false;
+          }
+        });
+
+      expect(elicitRequestHandlerCall).toBeDefined();
+      expect(mockClient.setRequestHandler).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(Function),
+      );
+    });
+
+    test("does not set up elicitation request handler when onElicitationRequest is not provided", async () => {
+      const { result } = renderHook(() => useConnection(defaultProps));
+
+      await act(async () => {
+        await result.current.connect();
+      });
+
+      const elicitRequestHandlerCall =
+        mockClient.setRequestHandler.mock.calls.find((call) => {
+          try {
+            const schema = call[0];
+            const testRequest = {
+              method: "elicitation/create",
+              params: {
+                message: "test message",
+                requestedSchema: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                  },
+                },
+              },
+            };
+            const parseResult =
+              schema.safeParse && schema.safeParse(testRequest);
+            return parseResult?.success;
+          } catch {
+            return false;
+          }
+        });
+
+      expect(elicitRequestHandlerCall).toBeUndefined();
+    });
+
+    test("elicitation request handler calls onElicitationRequest callback", async () => {
+      const mockOnElicitationRequest = jest.fn();
+      const propsWithElicitation = {
+        ...defaultProps,
+        onElicitationRequest: mockOnElicitationRequest,
+      };
+
+      const { result } = renderHook(() => useConnection(propsWithElicitation));
+
+      await act(async () => {
+        await result.current.connect();
+      });
+
+      const elicitRequestHandlerCall =
+        mockClient.setRequestHandler.mock.calls.find((call) => {
+          try {
+            const schema = call[0];
+            const testRequest = {
+              method: "elicitation/create",
+              params: {
+                message: "test message",
+                requestedSchema: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                  },
+                },
+              },
+            };
+            const parseResult =
+              schema.safeParse && schema.safeParse(testRequest);
+            return parseResult?.success;
+          } catch {
+            return false;
+          }
+        });
+
+      expect(elicitRequestHandlerCall).toBeDefined();
+      const [, handler] = elicitRequestHandlerCall;
+
+      const mockElicitationRequest: ElicitRequest = {
+        method: "elicitation/create",
+        params: {
+          message: "Please provide your name",
+          requestedSchema: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+            },
+            required: ["name"],
+          },
+        },
+      };
+
+      mockOnElicitationRequest.mockImplementation((_request, resolve) => {
+        resolve({ action: "accept", content: { name: "test" } });
+      });
+
+      await act(async () => {
+        await handler(mockElicitationRequest);
+      });
+
+      expect(mockOnElicitationRequest).toHaveBeenCalledWith(
+        mockElicitationRequest,
+        expect.any(Function),
+      );
+    });
+
+    test("elicitation request handler returns a promise that resolves with the callback result", async () => {
+      const mockOnElicitationRequest = jest.fn();
+      const propsWithElicitation = {
+        ...defaultProps,
+        onElicitationRequest: mockOnElicitationRequest,
+      };
+
+      const { result } = renderHook(() => useConnection(propsWithElicitation));
+
+      await act(async () => {
+        await result.current.connect();
+      });
+
+      const elicitRequestHandlerCall =
+        mockClient.setRequestHandler.mock.calls.find((call) => {
+          try {
+            const schema = call[0];
+            const testRequest = {
+              method: "elicitation/create",
+              params: {
+                message: "test message",
+                requestedSchema: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                  },
+                },
+              },
+            };
+            const parseResult =
+              schema.safeParse && schema.safeParse(testRequest);
+            return parseResult?.success;
+          } catch {
+            return false;
+          }
+        });
+
+      const [, handler] = elicitRequestHandlerCall;
+
+      const mockElicitationRequest: ElicitRequest = {
+        method: "elicitation/create",
+        params: {
+          message: "Please provide your name",
+          requestedSchema: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+            },
+            required: ["name"],
+          },
+        },
+      };
+
+      const mockResponse: ElicitResult = {
+        action: "accept",
+        content: { name: "John Doe" },
+      };
+
+      mockOnElicitationRequest.mockImplementation((_request, resolve) => {
+        resolve(mockResponse);
+      });
+
+      let handlerResult;
+      await act(async () => {
+        handlerResult = await handler(mockElicitationRequest);
+      });
+
+      expect(handlerResult).toEqual(mockResponse);
+    });
   });
 
   describe("URL Port Handling", () => {
@@ -460,6 +737,269 @@ describe("useConnection", () => {
       expect(
         mockStreamableHTTPTransport.options?.requestInit?.headers,
       ).toHaveProperty("X-MCP-Proxy-Auth", "Bearer test-proxy-token");
+    });
+  });
+
+  describe("OAuth Error Handling with Scope Discovery", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockAuth.mockResolvedValue("AUTHORIZED");
+      mockDiscoverScopes.mockResolvedValue(undefined);
+    });
+
+    const setup401Error = () => {
+      const mockErrorEvent = new ErrorEvent("error", {
+        message: "Mock error event",
+      });
+      mockClient.connect.mockRejectedValueOnce(
+        new SseError(401, "Unauthorized", mockErrorEvent),
+      );
+    };
+
+    const attemptConnection = async (props = defaultProps) => {
+      const { result } = renderHook(() => useConnection(props));
+      await act(async () => {
+        try {
+          await result.current.connect();
+        } catch {
+          // Expected error from auth handling
+        }
+      });
+    };
+
+    const testCases = [
+      [
+        "discovers and includes scopes in auth call",
+        {
+          discoveredScope: "read write admin",
+          oauthScope: undefined,
+          expectScopeCall: true,
+          expectedAuthScope: "read write admin",
+          authResult: "AUTHORIZED",
+        },
+      ],
+      [
+        "handles scope discovery failure gracefully",
+        {
+          discoveredScope: undefined,
+          oauthScope: undefined,
+          expectScopeCall: true,
+          expectedAuthScope: undefined,
+          authResult: "AUTHORIZED",
+        },
+      ],
+      [
+        "uses manual oauthScope override instead of discovered scopes",
+        {
+          discoveredScope: "discovered:scope",
+          oauthScope: "manual:scope",
+          expectScopeCall: false,
+          expectedAuthScope: "manual:scope",
+          authResult: "AUTHORIZED",
+        },
+      ],
+      [
+        "triggers scope discovery when oauthScope is whitespace",
+        {
+          discoveredScope: "discovered:scope",
+          oauthScope: "   ",
+          expectScopeCall: true,
+          expectedAuthScope: "discovered:scope",
+          authResult: "AUTHORIZED",
+        },
+      ],
+      [
+        "handles auth failure after scope discovery",
+        {
+          discoveredScope: "read write",
+          oauthScope: undefined,
+          expectScopeCall: true,
+          expectedAuthScope: "read write",
+          authResult: "UNAUTHORIZED",
+        },
+      ],
+    ] as const;
+
+    test.each(testCases)(
+      "should %s",
+      async (
+        _,
+        {
+          discoveredScope,
+          oauthScope,
+          expectScopeCall,
+          expectedAuthScope,
+          authResult = "AUTHORIZED",
+        },
+      ) => {
+        mockDiscoverScopes.mockResolvedValue(discoveredScope);
+        mockAuth.mockResolvedValue(authResult as never);
+        setup401Error();
+
+        const props =
+          oauthScope !== undefined
+            ? { ...defaultProps, oauthScope }
+            : defaultProps;
+        await attemptConnection(props);
+
+        if (expectScopeCall) {
+          expect(mockDiscoverScopes).toHaveBeenCalledWith(
+            defaultProps.sseUrl,
+            undefined,
+          );
+        } else {
+          expect(mockDiscoverScopes).not.toHaveBeenCalled();
+        }
+
+        expect(mockAuth).toHaveBeenCalledWith(expect.any(Object), {
+          serverUrl: defaultProps.sseUrl,
+          scope: expectedAuthScope,
+        });
+      },
+    );
+
+    it("should handle slow scope discovery gracefully", async () => {
+      mockDiscoverScopes.mockImplementation(
+        () =>
+          new Promise((resolve) => setTimeout(() => resolve(undefined), 100)),
+      );
+
+      setup401Error();
+      await attemptConnection();
+
+      expect(mockDiscoverScopes).toHaveBeenCalledWith(
+        defaultProps.sseUrl,
+        undefined,
+      );
+      expect(mockAuth).toHaveBeenCalledWith(expect.any(Object), {
+        serverUrl: defaultProps.sseUrl,
+        scope: undefined,
+      });
+    });
+  });
+
+  describe("MCP_PROXY_FULL_ADDRESS Configuration", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      // Reset the mock transport objects
+      mockSSETransport.url = undefined;
+      mockSSETransport.options = undefined;
+      mockStreamableHTTPTransport.url = undefined;
+      mockStreamableHTTPTransport.options = undefined;
+    });
+
+    test("sends proxyFullAddress query parameter for stdio transport when configured", async () => {
+      const propsWithProxyFullAddress = {
+        ...defaultProps,
+        transportType: "stdio" as const,
+        command: "test-command",
+        args: "test-args",
+        env: {},
+        config: {
+          ...DEFAULT_INSPECTOR_CONFIG,
+          MCP_PROXY_FULL_ADDRESS: {
+            ...DEFAULT_INSPECTOR_CONFIG.MCP_PROXY_FULL_ADDRESS,
+            value: "https://example.com/inspector/mcp_proxy",
+          },
+        },
+      };
+
+      const { result } = renderHook(() =>
+        useConnection(propsWithProxyFullAddress),
+      );
+
+      await act(async () => {
+        await result.current.connect();
+      });
+
+      // Check that the URL contains the proxyFullAddress parameter
+      expect(mockSSETransport.url?.searchParams.get("proxyFullAddress")).toBe(
+        "https://example.com/inspector/mcp_proxy",
+      );
+    });
+
+    test("sends proxyFullAddress query parameter for sse transport when configured", async () => {
+      const propsWithProxyFullAddress = {
+        ...defaultProps,
+        transportType: "sse" as const,
+        sseUrl: "http://localhost:8080",
+        config: {
+          ...DEFAULT_INSPECTOR_CONFIG,
+          MCP_PROXY_FULL_ADDRESS: {
+            ...DEFAULT_INSPECTOR_CONFIG.MCP_PROXY_FULL_ADDRESS,
+            value: "https://example.com/inspector/mcp_proxy",
+          },
+        },
+      };
+
+      const { result } = renderHook(() =>
+        useConnection(propsWithProxyFullAddress),
+      );
+
+      await act(async () => {
+        await result.current.connect();
+      });
+
+      // Check that the URL contains the proxyFullAddress parameter
+      expect(mockSSETransport.url?.searchParams.get("proxyFullAddress")).toBe(
+        "https://example.com/inspector/mcp_proxy",
+      );
+    });
+
+    test("does not send proxyFullAddress parameter when MCP_PROXY_FULL_ADDRESS is empty", async () => {
+      const propsWithEmptyProxy = {
+        ...defaultProps,
+        transportType: "stdio" as const,
+        command: "test-command",
+        args: "test-args",
+        env: {},
+        config: {
+          ...DEFAULT_INSPECTOR_CONFIG,
+          MCP_PROXY_FULL_ADDRESS: {
+            ...DEFAULT_INSPECTOR_CONFIG.MCP_PROXY_FULL_ADDRESS,
+            value: "",
+          },
+        },
+      };
+
+      const { result } = renderHook(() => useConnection(propsWithEmptyProxy));
+
+      await act(async () => {
+        await result.current.connect();
+      });
+
+      // Check that the URL does not contain the proxyFullAddress parameter
+      expect(
+        mockSSETransport.url?.searchParams.get("proxyFullAddress"),
+      ).toBeNull();
+    });
+
+    test("does not send proxyFullAddress parameter for streamable-http transport", async () => {
+      const propsWithStreamableHttp = {
+        ...defaultProps,
+        transportType: "streamable-http" as const,
+        sseUrl: "http://localhost:8080",
+        config: {
+          ...DEFAULT_INSPECTOR_CONFIG,
+          MCP_PROXY_FULL_ADDRESS: {
+            ...DEFAULT_INSPECTOR_CONFIG.MCP_PROXY_FULL_ADDRESS,
+            value: "https://example.com/inspector/mcp_proxy",
+          },
+        },
+      };
+
+      const { result } = renderHook(() =>
+        useConnection(propsWithStreamableHttp),
+      );
+
+      await act(async () => {
+        await result.current.connect();
+      });
+
+      // Check that streamable-http transport doesn't get proxyFullAddress parameter
+      expect(
+        mockStreamableHTTPTransport.url?.searchParams.get("proxyFullAddress"),
+      ).toBeNull();
     });
   });
 });

@@ -22,6 +22,7 @@ import { findActualExecutable } from "spawn-rx";
 import mcpProxy from "./mcpProxy.js";
 import { randomUUID, randomBytes, timingSafeEqual } from "node:crypto";
 
+const DEFAULT_MCP_PROXY_LISTEN_PORT = "6277";
 const SSE_HEADERS_PASSTHROUGH = ["authorization"];
 const STREAMABLE_HTTP_HEADERS_PASSTHROUGH = [
   "authorization",
@@ -39,6 +40,9 @@ const { values } = parseArgs({
   options: {
     env: { type: "string", default: "" },
     args: { type: "string", default: "" },
+    command: { type: "string", default: "" },
+    transport: { type: "string", default: "" },
+    "server-url": { type: "string", default: "" },
   },
 });
 
@@ -189,10 +193,10 @@ const createTransport = async (req: express.Request): Promise<Transport> => {
   const transportType = query.transportType as string;
 
   if (transportType === "stdio") {
-    const command = query.command as string;
+    const command = (query.command as string).trim();
     const origArgs = shellParseArgs(query.args as string) as string[];
     const queryEnv = query.env ? JSON.parse(query.env as string) : {};
-    const env = { ...process.env, ...defaultEnvironment, ...queryEnv };
+    const env = { ...defaultEnvironment, ...process.env, ...queryEnv };
 
     const { cmd, args } = findActualExecutable(command, origArgs);
 
@@ -545,8 +549,10 @@ app.get("/config", originValidationMiddleware, authMiddleware, (req, res) => {
   try {
     res.json({
       defaultEnvironment,
-      defaultCommand: values.env,
+      defaultCommand: values.command,
       defaultArgs: values.args,
+      defaultTransport: values.transport,
+      defaultServerUrl: values["server-url"],
     });
   } catch (error) {
     console.error("Error in /config route:", error);

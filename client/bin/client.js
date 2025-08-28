@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import open from "open";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import handler from "serve-handler";
@@ -11,10 +12,10 @@ const distPath = join(__dirname, "../dist");
 const server = http.createServer((request, response) => {
   // BOLTIC: Change
   // Health check endpoints
-  if (request.url?.includes('/_healthz') || request.url?.includes('/_readyz')) {
+  if (request.url?.includes("/_healthz") || request.url?.includes("/_readyz")) {
     response.writeHead(200, {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache, no-store, max-age=0'
+      "Content-Type": "application/json",
+      "Cache-Control": "no-cache, no-store, max-age=0",
     });
     response.end(JSON.stringify({ ok: "ok" }));
     return;
@@ -53,15 +54,11 @@ const server = http.createServer((request, response) => {
 const port = process.env.PORT || 6274;
 const host = process.env.HOST || "0.0.0.0";
 server.on("listening", () => {
-  console.log(
-    `MCP Inspector is up and running at http://${host}:${port} 🚀`,
-  );
+  console.log(`MCP Inspector is up and running at http://${host}:${port} 🚀`);
 });
 server.on("error", (err) => {
   if (err.message.includes(`EADDRINUSE`)) {
-    console.error(
-      `MCP Inspector PORT IS IN USE at http://${host}:${port} ❌ `,
-    );
+    console.error(`MCP Inspector PORT IS IN USE at http://${host}:${port} ❌ `);
   } else {
     throw err;
   }

@@ -1,6 +1,7 @@
 import {
   generateDefaultValue,
   formatFieldLabel,
+  normalizeUnionType,
   cacheToolOutputSchemas,
   getToolOutputValidator,
   validateToolOutput,
@@ -11,72 +12,68 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 describe("generateDefaultValue", () => {
   test("generates default string", () => {
-    expect(generateDefaultValue({ type: "string", required: true })).toBe("");
+    const parentSchema = { type: "object" as const, required: ["testProp"] };
+    expect(
+      generateDefaultValue({ type: "string" }, "testProp", parentSchema),
+    ).toBe("");
   });
 
   test("generates default number", () => {
-    expect(generateDefaultValue({ type: "number", required: true })).toBe(0);
+    const parentSchema = { type: "object" as const, required: ["testProp"] };
+    expect(
+      generateDefaultValue({ type: "number" }, "testProp", parentSchema),
+    ).toBe(0);
   });
 
   test("generates default integer", () => {
-    expect(generateDefaultValue({ type: "integer", required: true })).toBe(0);
+    const parentSchema = { type: "object" as const, required: ["testProp"] };
+    expect(
+      generateDefaultValue({ type: "integer" }, "testProp", parentSchema),
+    ).toBe(0);
   });
 
   test("generates default boolean", () => {
-    expect(generateDefaultValue({ type: "boolean", required: true })).toBe(
-      false,
-    );
+    const parentSchema = { type: "object" as const, required: ["testProp"] };
+    expect(
+      generateDefaultValue({ type: "boolean" }, "testProp", parentSchema),
+    ).toBe(false);
   });
 
   test("generates default array", () => {
-    expect(generateDefaultValue({ type: "array", required: true })).toEqual([]);
+    expect(generateDefaultValue({ type: "array" })).toEqual([]);
   });
 
   test("generates default empty object", () => {
-    expect(generateDefaultValue({ type: "object", required: true })).toEqual(
-      {},
-    );
+    expect(generateDefaultValue({ type: "object" })).toEqual({});
   });
 
   test("generates default null for unknown types", () => {
     // @ts-expect-error Testing with invalid type
-    expect(generateDefaultValue({ type: "unknown", required: true })).toBe(
-      null,
-    );
+    expect(generateDefaultValue({ type: "unknown" })).toBe(undefined);
   });
 
   test("generates empty array for non-required array", () => {
-    expect(generateDefaultValue({ type: "array", required: false })).toEqual(
-      [],
-    );
+    expect(generateDefaultValue({ type: "array" })).toEqual([]);
   });
 
   test("generates empty object for non-required object", () => {
-    expect(generateDefaultValue({ type: "object", required: false })).toEqual(
-      {},
-    );
+    expect(generateDefaultValue({ type: "object" })).toEqual({});
   });
 
-  test("generates null for non-required primitive types", () => {
-    expect(generateDefaultValue({ type: "string", required: false })).toBe(
-      undefined,
-    );
-    expect(generateDefaultValue({ type: "number", required: false })).toBe(
-      undefined,
-    );
-    expect(generateDefaultValue({ type: "boolean", required: false })).toBe(
-      undefined,
-    );
+  test("generates undefined for non-required primitive types", () => {
+    expect(generateDefaultValue({ type: "string" })).toBe(undefined);
+    expect(generateDefaultValue({ type: "number" })).toBe(undefined);
+    expect(generateDefaultValue({ type: "boolean" })).toBe(undefined);
   });
 
   test("generates object with properties", () => {
     const schema: JsonSchemaType = {
       type: "object",
-      required: true,
+      required: ["name", "age", "isActive"],
       properties: {
-        name: { type: "string", required: true },
-        age: { type: "number", required: true },
-        isActive: { type: "boolean", required: true },
+        name: { type: "string" },
+        age: { type: "number" },
+        isActive: { type: "boolean" },
       },
     };
     expect(generateDefaultValue(schema)).toEqual({
@@ -89,18 +86,18 @@ describe("generateDefaultValue", () => {
   test("handles nested objects", () => {
     const schema: JsonSchemaType = {
       type: "object",
-      required: true,
+      required: ["user"],
       properties: {
         user: {
           type: "object",
-          required: true,
+          required: ["name", "address"],
           properties: {
-            name: { type: "string", required: true },
+            name: { type: "string" },
             address: {
               type: "object",
-              required: true,
+              required: ["city"],
               properties: {
-                city: { type: "string", required: true },
+                city: { type: "string" },
               },
             },
           },
@@ -143,6 +140,189 @@ describe("formatFieldLabel", () => {
 
   test("handles empty string", () => {
     expect(formatFieldLabel("")).toBe("");
+  });
+});
+
+describe("normalizeUnionType", () => {
+  test("normalizes anyOf with string and null to string type", () => {
+    const schema: JsonSchemaType = {
+      anyOf: [{ type: "string" }, { type: "null" }],
+      description: "Optional string parameter",
+    };
+
+    const normalized = normalizeUnionType(schema);
+
+    expect(normalized.type).toBe("string");
+    expect(normalized.anyOf).toBeUndefined();
+    expect(normalized.description).toBe("Optional string parameter");
+  });
+
+  test("normalizes anyOf with boolean and null to boolean type", () => {
+    const schema: JsonSchemaType = {
+      anyOf: [{ type: "boolean" }, { type: "null" }],
+      description: "Optional boolean parameter",
+    };
+
+    const normalized = normalizeUnionType(schema);
+
+    expect(normalized.type).toBe("boolean");
+    expect(normalized.anyOf).toBeUndefined();
+    expect(normalized.description).toBe("Optional boolean parameter");
+  });
+
+  test("normalizes array type with string and null to string type", () => {
+    const schema: JsonSchemaType = {
+      type: ["string", "null"],
+      description: "Optional string parameter",
+    };
+
+    const normalized = normalizeUnionType(schema);
+
+    expect(normalized.type).toBe("string");
+    expect(normalized.description).toBe("Optional string parameter");
+  });
+
+  test("normalizes array type with boolean and null to boolean type", () => {
+    const schema: JsonSchemaType = {
+      type: ["boolean", "null"],
+      description: "Optional boolean parameter",
+    };
+
+    const normalized = normalizeUnionType(schema);
+
+    expect(normalized.type).toBe("boolean");
+    expect(normalized.description).toBe("Optional boolean parameter");
+  });
+
+  test("normalizes anyOf with number and null to number type", () => {
+    const schema: JsonSchemaType = {
+      anyOf: [{ type: "number" }, { type: "null" }],
+      description: "Optional number parameter",
+    };
+
+    const normalized = normalizeUnionType(schema);
+
+    expect(normalized.type).toBe("number");
+    expect(normalized.anyOf).toBeUndefined();
+    expect(normalized.description).toBe("Optional number parameter");
+  });
+
+  test("normalizes anyOf with integer and null to integer type", () => {
+    const schema: JsonSchemaType = {
+      anyOf: [{ type: "integer" }, { type: "null" }],
+      description: "Optional integer parameter",
+    };
+
+    const normalized = normalizeUnionType(schema);
+
+    expect(normalized.type).toBe("integer");
+    expect(normalized.anyOf).toBeUndefined();
+    expect(normalized.description).toBe("Optional integer parameter");
+  });
+
+  test("normalizes array type with number and null to number type", () => {
+    const schema: JsonSchemaType = {
+      type: ["number", "null"],
+      description: "Optional number parameter",
+    };
+
+    const normalized = normalizeUnionType(schema);
+
+    expect(normalized.type).toBe("number");
+    expect(normalized.description).toBe("Optional number parameter");
+  });
+
+  test("normalizes array type with integer and null to integer type", () => {
+    const schema: JsonSchemaType = {
+      type: ["integer", "null"],
+      description: "Optional integer parameter",
+    };
+
+    const normalized = normalizeUnionType(schema);
+
+    expect(normalized.type).toBe("integer");
+    expect(normalized.description).toBe("Optional integer parameter");
+  });
+
+  test("handles anyOf with reversed order (null first)", () => {
+    const schema: JsonSchemaType = {
+      anyOf: [{ type: "null" }, { type: "string" }],
+    };
+
+    const normalized = normalizeUnionType(schema);
+
+    expect(normalized.type).toBe("string");
+    expect(normalized.anyOf).toBeUndefined();
+  });
+
+  test("leaves non-union schemas unchanged", () => {
+    const schema: JsonSchemaType = {
+      type: "string",
+      description: "Regular string parameter",
+    };
+
+    const normalized = normalizeUnionType(schema);
+
+    expect(normalized).toEqual(schema);
+  });
+
+  test("leaves anyOf with non-matching types unchanged", () => {
+    const schema: JsonSchemaType = {
+      anyOf: [{ type: "string" }, { type: "number" }],
+    };
+
+    const normalized = normalizeUnionType(schema);
+
+    expect(normalized).toEqual(schema);
+  });
+
+  test("leaves anyOf with more than two types unchanged", () => {
+    const schema: JsonSchemaType = {
+      anyOf: [{ type: "string" }, { type: "number" }, { type: "null" }],
+    };
+
+    const normalized = normalizeUnionType(schema);
+
+    expect(normalized).toEqual(schema);
+  });
+
+  test("leaves array type with non-matching types unchanged", () => {
+    const schema: JsonSchemaType = {
+      type: ["string", "number"],
+    };
+
+    const normalized = normalizeUnionType(schema);
+
+    expect(normalized).toEqual(schema);
+  });
+
+  test("handles schemas without type or anyOf", () => {
+    const schema: JsonSchemaType = {
+      description: "Schema without type",
+    };
+
+    const normalized = normalizeUnionType(schema);
+
+    expect(normalized).toEqual(schema);
+  });
+
+  test("preserves other properties when normalizing", () => {
+    const schema: JsonSchemaType = {
+      anyOf: [{ type: "string" }, { type: "null" }],
+      description: "Optional string",
+      minLength: 1,
+      maxLength: 100,
+      pattern: "^[a-z]+$",
+    };
+
+    const normalized = normalizeUnionType(schema);
+
+    expect(normalized.type).toBe("string");
+    expect(normalized.anyOf).toBeUndefined();
+    expect(normalized.description).toBe("Optional string");
+    expect(normalized.minLength).toBe(1);
+    expect(normalized.maxLength).toBe(100);
+    expect(normalized.pattern).toBe("^[a-z]+$");
   });
 });
 

@@ -7,14 +7,36 @@ import { fileURLToPath } from "url";
 import { randomBytes } from "crypto";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const DEFAULT_MCP_PROXY_LISTEN_PORT = "6277";
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms, true));
 }
 
+function getClientUrl(port, authDisabled, sessionToken, serverPort) {
+  const host = process.env.HOST || "localhost";
+  const baseUrl = `http://${host}:${port}`;
+
+  const params = new URLSearchParams();
+  if (serverPort && serverPort !== DEFAULT_MCP_PROXY_LISTEN_PORT) {
+    params.set("MCP_PROXY_PORT", serverPort);
+  }
+  if (!authDisabled) {
+    params.set("MCP_PROXY_AUTH_TOKEN", sessionToken);
+  }
+  return params.size > 0 ? `${baseUrl}/?${params.toString()}` : baseUrl;
+}
+
 async function startDevServer(serverOptions) {
-  const { SERVER_PORT, CLIENT_PORT, sessionToken, envVars, abort } =
-    serverOptions;
+  const {
+    SERVER_PORT,
+    CLIENT_PORT,
+    sessionToken,
+    envVars,
+    abort,
+    transport,
+    serverUrl,
+  } = serverOptions;
   const serverCommand = "npx";
   const serverArgs = ["tsx", "watch", "--clear-screen=false", "src/index.ts"];
   const isWindows = process.platform === "win32";
@@ -23,10 +45,12 @@ async function startDevServer(serverOptions) {
     cwd: resolve(__dirname, "../..", "server"),
     env: {
       ...process.env,
-      PORT: SERVER_PORT,
-      CLIENT_PORT: CLIENT_PORT,
-      MCP_PROXY_TOKEN: sessionToken,
+      SERVER_PORT,
+      CLIENT_PORT,
+      MCP_PROXY_AUTH_TOKEN: sessionToken,
       MCP_ENV_VARS: JSON.stringify(envVars),
+      ...(transport ? { MCP_TRANSPORT: transport } : {}),
+      ...(serverUrl ? { MCP_SERVER_URL: serverUrl } : {}),
     },
     signal: abort.signal,
     echoOutput: true,
@@ -45,7 +69,7 @@ async function startDevServer(serverOptions) {
       server.subscribe({
         complete: () => resolve(false),
         error: () => resolve(false),
-        next: () => { }, // We're using echoOutput
+        next: () => {}, // We're using echoOutput
       });
     }),
     delay(3000).then(() => true),
@@ -63,6 +87,8 @@ async function startProdServer(serverOptions) {
     abort,
     command,
     mcpServerArgs,
+    transport,
+    serverUrl,
   } = serverOptions;
   const inspectorServerPath = resolve(
     __dirname,
@@ -76,15 +102,19 @@ async function startProdServer(serverOptions) {
     "node",
     [
       inspectorServerPath,
-      ...(command ? [`--env`, command] : []),
-      ...(mcpServerArgs ? [`--args=${mcpServerArgs.join(" ")}`] : []),
+      ...(command ? [`--command=${command}`] : []),
+      ...(mcpServerArgs && mcpServerArgs.length > 0
+        ? [`--args=${mcpServerArgs.join(" ")}`]
+        : []),
+      ...(transport ? [`--transport=${transport}`] : []),
+      ...(serverUrl ? [`--server-url=${serverUrl}`] : []),
     ],
     {
       env: {
         ...process.env,
-        PORT: SERVER_PORT,
-        CLIENT_PORT: CLIENT_PORT,
-        MCP_PROXY_TOKEN: sessionToken,
+        SERVER_PORT,
+        CLIENT_PORT,
+        MCP_PROXY_AUTH_TOKEN: sessionToken,
         MCP_ENV_VARS: JSON.stringify(envVars),
       },
       signal: abort.signal,
@@ -99,31 +129,42 @@ async function startProdServer(serverOptions) {
 }
 
 async function startDevClient(clientOptions) {
-  const { CLIENT_PORT, authDisabled, sessionToken, abort, cancelled } =
-    clientOptions;
+  const {
+    CLIENT_PORT,
+    SERVER_PORT,
+    authDisabled,
+    sessionToken,
+    abort,
+    cancelled,
+  } = clientOptions;
   const clientCommand = "npx";
-  const clientArgs = ["vite", "--port", CLIENT_PORT];
+  const host = process.env.HOST || "localhost";
+  const clientArgs = ["vite", "--port", CLIENT_PORT, "--host", host];
 
   const client = spawn(clientCommand, clientArgs, {
     cwd: resolve(__dirname, ".."),
-    env: { ...process.env, PORT: CLIENT_PORT },
+    env: { ...process.env, CLIENT_PORT },
     signal: abort.signal,
     echoOutput: true,
   });
 
-  // Auto-open browser after vite starts
-  if (process.env.MCP_AUTO_OPEN_ENABLED !== "false") {
-    const url = authDisabled
-      ? `http://127.0.0.1:${CLIENT_PORT}`
-      : `http://127.0.0.1:${CLIENT_PORT}/?MCP_PROXY_AUTH_TOKEN=${sessionToken}`;
+  const url = getClientUrl(
+    CLIENT_PORT,
+    authDisabled,
+    sessionToken,
+    SERVER_PORT,
+  );
 
-    // Give vite time to start before opening browser
-    // BOLTIC: Not required
-    // setTimeout(() => {
-    //   
-    //   console.log(`\n🔗 Opening browser at: ${url}\n`);
-    // }, 3000);
-  }
+  // BOLTIC: Not required
+
+  // Give vite time to start before opening or logging the URL
+  // setTimeout(() => {
+  //   console.log(`\n🚀 MCP Inspector is up and running at:\n   ${url}\n`);
+  //   if (process.env.MCP_AUTO_OPEN_ENABLED !== "false") {
+  //     console.log("🌐 Opening browser...");
+  //     open(url);
+  //   }
+  // }, 3000);
 
   await new Promise((resolve) => {
     client.subscribe({
@@ -134,13 +175,20 @@ async function startDevClient(clientOptions) {
         }
         resolve(null);
       },
-      next: () => { }, // We're using echoOutput
+      next: () => {}, // We're using echoOutput
     });
   });
 }
 
 async function startProdClient(clientOptions) {
-  const { CLIENT_PORT, authDisabled, sessionToken, abort } = clientOptions;
+  const {
+    CLIENT_PORT,
+    SERVER_PORT,
+    authDisabled,
+    sessionToken,
+    abort,
+    cancelled,
+  } = clientOptions;
   const inspectorClientPath = resolve(
     __dirname,
     "../..",
@@ -149,16 +197,19 @@ async function startProdClient(clientOptions) {
     "client.js",
   );
 
-  // Auto-open browser with token
-  if (process.env.MCP_AUTO_OPEN_ENABLED !== "false") {
-    const url = authDisabled
-      ? `http://127.0.0.1:${CLIENT_PORT}`
-      : `http://127.0.0.1:${CLIENT_PORT}/?MCP_PROXY_AUTH_TOKEN=${sessionToken}`;
-
-  }
+  const url = getClientUrl(
+    CLIENT_PORT,
+    authDisabled,
+    sessionToken,
+    SERVER_PORT,
+  );
 
   await spawnPromise("node", [inspectorClientPath], {
-    env: { ...process.env, PORT: CLIENT_PORT },
+    env: {
+      ...process.env,
+      CLIENT_PORT,
+      INSPECTOR_URL: url,
+    },
     signal: abort.signal,
     echoOutput: true,
   });
@@ -172,6 +223,8 @@ async function main() {
   let command = null;
   let parsingFlags = true;
   let isDev = false;
+  let transport = null;
+  let serverUrl = null;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -183,6 +236,16 @@ async function main() {
 
     if (parsingFlags && arg === "--dev") {
       isDev = true;
+      continue;
+    }
+
+    if (parsingFlags && arg === "--transport" && i + 1 < args.length) {
+      transport = args[++i];
+      continue;
+    }
+
+    if (parsingFlags && arg === "--server-url" && i + 1 < args.length) {
+      serverUrl = args[++i];
       continue;
     }
 
@@ -214,9 +277,11 @@ async function main() {
       : `Starting MCP inspector in ${SERVER_TYPE} mode...`,
   );
 
-  // Generate session token for authentication
-  const sessionToken = randomBytes(32).toString("hex");
-  const authDisabled = true // BOLTIC: Auth not required
+  // BOLTIC: Auth ot required
+  // Use provided token from environment or generate a new one
+  const sessionToken =
+    process.env.MCP_PROXY_AUTH_TOKEN || randomBytes(32).toString("hex");
+  const authDisabled = true || !!process.env.DANGEROUSLY_OMIT_AUTH;
 
   const abort = new AbortController();
 
@@ -225,6 +290,8 @@ async function main() {
     cancelled = true;
     abort.abort();
   });
+
+  let server, serverOk;
 
   try {
     const serverOptions = {
@@ -235,8 +302,9 @@ async function main() {
       abort,
       command,
       mcpServerArgs,
+      transport,
+      serverUrl,
     };
-
 
     if (SERVER_TYPE === "proxy") {
       const result = isDev
@@ -264,7 +332,9 @@ async function main() {
         if (!cancelled || process.env.DEBUG) throw e;
       }
     } else {
-      console.error("Invalid SERVER_TYPE. Please set SERVER_TYPE to 'proxy' or 'client'.");
+      console.error(
+        "Invalid SERVER_TYPE. Please set SERVER_TYPE to 'proxy' or 'client'.",
+      );
     }
     return 0;
   } catch (e) {

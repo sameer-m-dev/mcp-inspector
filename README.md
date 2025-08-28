@@ -33,6 +33,12 @@ SERVER_TYPE=proxy npm start
 To build the docker image, run:
 
 ```bash
+# Staging
+docker buildx build --push --platform linux/amd64 -f Dockerfile -t harbor-core.fynd.engineering/public/mcp/inspector:dev .
+```
+
+```bash
+# Production
 docker buildx build --push --platform linux/amd64 -f Dockerfile -t harbor-core.fynd.engineering/public/mcp/inspector:latest .
 ```
 
@@ -60,6 +66,14 @@ npx @modelcontextprotocol/inspector
 ```
 
 The server will start up and the UI will be accessible at `http://localhost:6274`.
+
+### Docker Container
+
+You can also start it in a Docker container with the following command:
+
+```bash
+docker run --rm --network host -p 6274:6274 -p 6277:6277 ghcr.io/modelcontextprotocol/inspector:latest
+```
 
 ### From an MCP server repository
 
@@ -198,22 +212,38 @@ If you need to disable authentication (NOT RECOMMENDED), you can set the `DANGER
 DANGEROUSLY_OMIT_AUTH=true npm start
 ```
 
+---
+
+**🚨 WARNING 🚨**
+
+Disabling authentication with `DANGEROUSLY_OMIT_AUTH` is incredibly dangerous! Disabling auth leaves your machine open to attack not just when exposed to the public internet, but also **via your web browser**. Meaning, visiting a malicious website OR viewing a malicious advertizement could allow an attacker to remotely compromise your computer. Do not disable this feature unless you truly understand the risks.
+
+Read more about the risks of this vulnerability on Oligo's blog: [Critical RCE Vulnerability in Anthropic MCP Inspector - CVE-2025-49596](https://www.oligo.security/blog/critical-rce-vulnerability-in-anthropic-mcp-inspector-cve-2025-49596)
+
+---
+
+You can also set the token via the `MCP_PROXY_AUTH_TOKEN` environment variable when starting the server:
+
+```bash
+MCP_PROXY_AUTH_TOKEN=$(openssl rand -hex 32) npm start
+```
+
 #### Local-only Binding
 
-By default, the MCP Inspector proxy server binds only to `127.0.0.1` (localhost) to prevent network access. This ensures the server is not accessible from other devices on the network. If you need to bind to all interfaces for development purposes, you can override this with the `HOST` environment variable:
+By default, both the MCP Inspector proxy server and client bind only to `localhost` to prevent network access. This ensures they are not accessible from other devices on the network. If you need to bind to all interfaces for development purposes, you can override this with the `HOST` environment variable:
 
 ```bash
 HOST=0.0.0.0 npm start
 ```
 
-**Warning:** Only bind to all interfaces in trusted network environments, as this exposes the proxy server's ability to execute local processes.
+**Warning:** Only bind to all interfaces in trusted network environments, as this exposes the proxy server's ability to execute local processes and both services to network access.
 
 #### DNS Rebinding Protection
 
 To prevent DNS rebinding attacks, the MCP Inspector validates the `Origin` header on incoming requests. By default, only requests from the client origin are allowed (respects `CLIENT_PORT` if set, defaulting to port 6274). You can configure additional allowed origins by setting the `ALLOWED_ORIGINS` environment variable (comma-separated list):
 
 ```bash
-ALLOWED_ORIGINS=http://localhost:6274,http://127.0.0.1:6274,http://localhost:8000 npm start
+ALLOWED_ORIGINS=http://localhost:6274,http://localhost:8000 npm start
 ```
 
 ### Configuration
@@ -260,6 +290,78 @@ Example server configuration file:
 }
 ```
 
+#### Transport Types in Config Files
+
+The inspector automatically detects the transport type from your config file. You can specify different transport types:
+
+**STDIO (default):**
+
+```json
+{
+  "mcpServers": {
+    "my-stdio-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-everything"]
+    }
+  }
+}
+```
+
+**SSE (Server-Sent Events):**
+
+```json
+{
+  "mcpServers": {
+    "my-sse-server": {
+      "type": "sse",
+      "url": "http://localhost:3000/sse"
+    }
+  }
+}
+```
+
+**Streamable HTTP:**
+
+```json
+{
+  "mcpServers": {
+    "my-http-server": {
+      "type": "streamable-http",
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}
+```
+
+#### Default Server Selection
+
+You can launch the inspector without specifying a server name if your config has:
+
+1. **A single server** - automatically selected:
+
+```bash
+# Automatically uses "my-server" if it's the only one
+npx @modelcontextprotocol/inspector --config mcp.json
+```
+
+2. **A server named "default-server"** - automatically selected:
+
+```json
+{
+  "mcpServers": {
+    "default-server": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-everything"]
+    },
+    "other-server": {
+      "command": "node",
+      "args": ["other.js"]
+    }
+  }
+}
+```
+
 > **Tip:** You can easily generate this configuration format using the **Server Entry** and **Servers File** buttons in the Inspector UI, as described in the Servers File Export section above.
 
 You can also set the initial `transport` type, `serverUrl`, `serverCommand`, and `serverArgs` via query params, for example:
@@ -286,6 +388,12 @@ Development mode:
 
 ```bash
 npm run dev
+
+# To co-develop with the typescript-sdk package (assuming it's cloned in ../typescript-sdk; set MCP_SDK otherwise):
+npm run dev:sdk "cd sdk && npm run examples:simple-server:w"
+# then open http://localhost:3000/mcp as SHTTP in the inspector.
+# To go back to the deployed SDK version:
+#   npm run unlink:sdk && npm i
 ```
 
 > **Note for Windows users:**
@@ -331,8 +439,11 @@ npx @modelcontextprotocol/inspector --cli node build/index.js --method resources
 # List available prompts
 npx @modelcontextprotocol/inspector --cli node build/index.js --method prompts/list
 
-# Connect to a remote MCP server
+# Connect to a remote MCP server (default is SSE transport)
 npx @modelcontextprotocol/inspector --cli https://my-mcp-server.example.com
+
+# Connect to a remote MCP server (with Streamable HTTP transport)
+npx @modelcontextprotocol/inspector --cli https://my-mcp-server.example.com --transport http --method tools/list
 
 # Call a tool on a remote server
 npx @modelcontextprotocol/inspector --cli https://my-mcp-server.example.com --method tools/call --tool-name remotetool --tool-arg param=value

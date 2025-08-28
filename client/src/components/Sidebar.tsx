@@ -24,7 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { StdErrNotification } from "@/lib/notificationTypes";
 import {
   LoggingLevel,
   LoggingLevelSchema,
@@ -57,10 +56,12 @@ interface SidebarProps {
   setBearerToken: (token: string) => void;
   headerName?: string;
   setHeaderName?: (name: string) => void;
+  oauthClientId: string;
+  setOauthClientId: (id: string) => void;
+  oauthScope: string;
+  setOauthScope: (scope: string) => void;
   onConnect: () => void;
   onDisconnect: () => void;
-  stdErrNotifications: StdErrNotification[];
-  clearStdErrNotifications: () => void;
   logLevel: LoggingLevel;
   sendLogLevelRequest: (level: LoggingLevel) => void;
   loggingSupported: boolean;
@@ -84,10 +85,12 @@ const Sidebar = ({
   setBearerToken,
   headerName,
   setHeaderName,
+  oauthClientId,
+  setOauthClientId,
+  oauthScope,
+  setOauthScope,
   onConnect,
   onDisconnect,
-  stdErrNotifications,
-  clearStdErrNotifications,
   logLevel,
   sendLogLevelRequest,
   loggingSupported,
@@ -96,7 +99,7 @@ const Sidebar = ({
 }: SidebarProps) => {
   const [theme, setTheme] = useTheme();
   const [showEnvVars, setShowEnvVars] = useState(false);
-  const [showBearerToken, setShowBearerToken] = useState(false);
+  const [showAuthConfig, setShowAuthConfig] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [shownEnvVars, setShownEnvVars] = useState<Set<string>>(new Set());
   const [copiedServerEntry, setCopiedServerEntry] = useState(false);
@@ -264,51 +267,6 @@ const Sidebar = ({
                   />
                 )}
               </div>
-              <div className="space-y-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowBearerToken(!showBearerToken)}
-                  className="flex items-center w-full"
-                  data-testid="auth-button"
-                  aria-expanded={showBearerToken}
-                >
-                  {showBearerToken ? (
-                    <ChevronDown className="w-4 h-4 mr-2" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 mr-2" />
-                  )}
-                  Authentication
-                </Button>
-                {showBearerToken && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Header Name</label>
-                    <Input
-                      placeholder="Authorization"
-                      onChange={(e) =>
-                        setHeaderName && setHeaderName(e.target.value)
-                      }
-                      data-testid="header-input"
-                      className="font-mono"
-                      value={headerName}
-                    />
-                    <label
-                      className="text-sm font-medium"
-                      htmlFor="bearer-token-input"
-                    >
-                      Bearer Token
-                    </label>
-                    <Input
-                      id="bearer-token-input"
-                      placeholder="Bearer Token"
-                      value={bearerToken}
-                      onChange={(e) => setBearerToken(e.target.value)}
-                      data-testid="bearer-token-input"
-                      className="font-mono"
-                      type="password"
-                    />
-                  </div>
-                )}
-              </div>
             </>
           )}
 
@@ -353,6 +311,95 @@ const Sidebar = ({
             </Tooltip>
           </div> */}
 
+          <div className="space-y-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowAuthConfig(!showAuthConfig)}
+              className="flex items-center w-full"
+              data-testid="auth-button"
+              aria-expanded={showAuthConfig}
+            >
+              {showAuthConfig ? (
+                <ChevronDown className="w-4 h-4 mr-2" />
+              ) : (
+                <ChevronRight className="w-4 h-4 mr-2" />
+              )}
+              Authentication
+            </Button>
+            {showAuthConfig && (
+              <>
+                {/* Bearer Token Section */}
+                <div className="space-y-2 p-3 rounded border">
+                  <h4 className="text-sm font-semibold flex items-center">
+                    API Token Authentication
+                  </h4>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Header Name</label>
+                    <Input
+                      placeholder="Authorization"
+                      onChange={(e) =>
+                        setHeaderName && setHeaderName(e.target.value)
+                      }
+                      data-testid="header-input"
+                      className="font-mono"
+                      value={headerName}
+                    />
+                    <label
+                      className="text-sm font-medium"
+                      htmlFor="bearer-token-input"
+                    >
+                      Bearer Token
+                    </label>
+                    <Input
+                      id="bearer-token-input"
+                      placeholder="Bearer Token"
+                      value={bearerToken}
+                      onChange={(e) => setBearerToken(e.target.value)}
+                      data-testid="bearer-token-input"
+                      className="font-mono"
+                      type="password"
+                    />
+                  </div>
+                </div>
+                {/* BOLTIC: Not required */}
+                {/* {transportType !== "stdio" && (
+                  // OAuth Configuration
+                  <div className="space-y-2 p-3  rounded border">
+                    <h4 className="text-sm font-semibold flex items-center">
+                      OAuth 2.0 Flow
+                    </h4>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Client ID</label>
+                      <Input
+                        placeholder="Client ID"
+                        onChange={(e) => setOauthClientId(e.target.value)}
+                        value={oauthClientId}
+                        data-testid="oauth-client-id-input"
+                        className="font-mono"
+                      />
+                      <label className="text-sm font-medium">
+                        Redirect URL
+                      </label>
+                      <Input
+                        readOnly
+                        placeholder="Redirect URL"
+                        value={window.location.origin + "/oauth/callback"}
+                        className="font-mono"
+                      />
+                      <label className="text-sm font-medium">Scope</label>
+                      <Input
+                        placeholder="Scope (space-separated)"
+                        onChange={(e) => setOauthScope(e.target.value)}
+                        value={oauthScope}
+                        data-testid="oauth-scope-input"
+                        className="font-mono"
+                      />
+                    </div>
+                  </div>
+                )} */}
+              </>
+            )}
+          </div>
           {/* Configuration */}
           <div className="space-y-2">
             <Button
@@ -541,36 +588,6 @@ const Sidebar = ({
                   </SelectContent>
                 </Select>
               </div>
-            )}
-
-            {stdErrNotifications.length > 0 && (
-              <>
-                <div className="mt-4 border-t border-gray-200 pt-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-sm font-medium">
-                      Error output from MCP server
-                    </h3>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={clearStdErrNotifications}
-                      className="h-8 px-2"
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                  <div className="mt-2 max-h-80 overflow-y-auto">
-                    {stdErrNotifications.map((notification, index) => (
-                      <div
-                        key={index}
-                        className="text-sm text-red-500 font-mono py-2 border-b border-gray-200 last:border-b-0"
-                      >
-                        {notification.params.content}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
             )}
           </div>
         </div>

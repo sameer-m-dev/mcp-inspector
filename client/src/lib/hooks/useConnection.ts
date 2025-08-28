@@ -28,15 +28,25 @@ import {
   ToolListChangedNotificationSchema,
   PromptListChangedNotificationSchema,
   Progress,
+  LoggingLevel,
+  ElicitRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { RequestOptions } from "@modelcontextprotocol/sdk/shared/protocol.js";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/lib/hooks/useToast";
 import { z } from "zod";
 import { ConnectionStatus } from "../constants";
-import { Notification, StdErrNotificationSchema } from "../notificationTypes";
-import { auth } from "@modelcontextprotocol/sdk/client/auth.js";
-import { InspectorOAuthClientProvider } from "../auth";
+import { Notification } from "../notificationTypes";
+import {
+  auth,
+  discoverOAuthProtectedResourceMetadata,
+} from "@modelcontextprotocol/sdk/client/auth.js";
+import {
+  clearClientInformationFromSessionStorage,
+  InspectorOAuthClientProvider,
+  saveClientInformationToSessionStorage,
+  discoverScopes,
+} from "../auth";
 import packageJson from "../../../package.json";
 import {
   getMCPProxyAddress,
@@ -57,13 +67,18 @@ interface UseConnectionOptions {
   env: Record<string, string>;
   bearerToken?: string;
   headerName?: string;
+  oauthClientId?: string;
+  oauthScope?: string;
   config: InspectorConfig;
   onNotification?: (notification: Notification) => void;
   onStdErrNotification?: (notification: Notification) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onPendingRequest?: (request: any, resolve: any, reject: any) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onElicitationRequest?: (request: any, resolve: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getRoots?: () => any[];
+  defaultLoggingLevel?: LoggingLevel;
 }
 
 export function useConnection({
@@ -74,11 +89,14 @@ export function useConnection({
   env,
   bearerToken,
   headerName,
+  oauthClientId,
+  oauthScope,
   config,
   onNotification,
-  onStdErrNotification,
   onPendingRequest,
+  onElicitationRequest,
   getRoots,
+  defaultLoggingLevel,
 }: UseConnectionOptions) {
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("disconnected");
@@ -92,7 +110,23 @@ export function useConnection({
   const [requestHistory, setRequestHistory] = useState<
     { request: string; response?: string }[]
   >([]);
-  const [completionsSupported, setCompletionsSupported] = useState(true);
+  const [completionsSupported, setCompletionsSupported] = useState(false);
+
+  useEffect(() => {
+    if (!oauthClientId) {
+      clearClientInformationFromSessionStorage({
+        serverUrl: sseUrl,
+        isPreregistered: true,
+      });
+      return;
+    }
+
+    saveClientInformationToSessionStorage({
+      serverUrl: sseUrl,
+      clientInformation: { client_id: oauthClientId },
+      isPreregistered: true,
+    });
+  }, [oauthClientId, sseUrl]);
 
   const pushHistory = (request: object, response?: object) => {
     setRequestHistory((prev) => [
@@ -171,6 +205,7 @@ export function useConnection({
     ref: ResourceReference | PromptReference,
     argName: string,
     value: string,
+    context?: Record<string, string>,
     signal?: AbortSignal,
   ): Promise<string[]> => {
     if (!mcpClient || !completionsSupported) {
@@ -187,6 +222,12 @@ export function useConnection({
         ref,
       },
     };
+
+    if (context) {
+      request["params"]["context"] = {
+        arguments: context,
+      };
+    }
 
     try {
       const response = await makeRequest(request, CompleteResultSchema, {
@@ -244,6 +285,7 @@ export function useConnection({
   const checkProxyHealth = async () => {
     try {
       const proxyHealthUrl = new URL(`${getMCPProxyAddress(config)}/health`);
+      console.log("proxyHealthUrl", proxyHealthUrl);
       const { token: proxyAuthToken, header: proxyAuthTokenHeader } =
         getMCPProxyAuthToken(config);
       const headers: HeadersInit = {};
@@ -278,9 +320,28 @@ export function useConnection({
 
   const handleAuthError = async (error: unknown) => {
     if (is401Error(error)) {
-      const serverAuthProvider = new InspectorOAuthClientProvider(sseUrl);
+      let scope = oauthScope?.trim();
+      if (!scope) {
+        // Only discover resource metadata when we need to discover scopes
+        let resourceMetadata;
+        try {
+          resourceMetadata = await discoverOAuthProtectedResourceMetadata(
+            new URL("/", sseUrl),
+          );
+        } catch {
+          // Resource metadata is optional, continue without it
+        }
+        scope = await discoverScopes(sseUrl, resourceMetadata);
+      }
+      const serverAuthProvider = new InspectorOAuthClientProvider(
+        sseUrl,
+        scope,
+      );
 
-      const result = await auth(serverAuthProvider, { serverUrl: sseUrl });
+      const result = await auth(serverAuthProvider, {
+        serverUrl: sseUrl,
+        scope,
+      });
       return result === "AUTHORIZED";
     }
 
@@ -296,6 +357,7 @@ export function useConnection({
       {
         capabilities: {
           sampling: {},
+          elicitation: {},
           roots: {
             listChanged: true,
           },
@@ -310,6 +372,7 @@ export function useConnection({
       return;
     }
 
+    let lastRequest = "";
     try {
       // Inject auth manually instead of using SSEClientTransport, because we're
       // proxying through the inspector server first.
@@ -443,13 +506,6 @@ export function useConnection({
         };
       }
 
-      if (onStdErrNotification) {
-        client.setNotificationHandler(
-          StdErrNotificationSchema,
-          onStdErrNotification,
-        );
-      }
-
       let capabilities;
       try {
         const transport =
@@ -506,7 +562,7 @@ export function useConnection({
         throw error;
       }
       setServerCapabilities(capabilities ?? null);
-      setCompletionsSupported(true); // Reset completions support on new connection
+      setCompletionsSupported(capabilities?.completions !== undefined);
 
       if (onPendingRequest) {
         client.setRequestHandler(CreateMessageRequestSchema, (request) => {
@@ -522,9 +578,34 @@ export function useConnection({
         });
       }
 
+      if (capabilities?.logging && defaultLoggingLevel) {
+        lastRequest = "logging/setLevel";
+        await client.setLoggingLevel(defaultLoggingLevel);
+        lastRequest = "";
+      }
+
+      if (onElicitationRequest) {
+        client.setRequestHandler(ElicitRequestSchema, async (request) => {
+          return new Promise((resolve) => {
+            onElicitationRequest(request, resolve);
+          });
+        });
+      }
+
       setMcpClient(client);
       setConnectionStatus("connected");
     } catch (e) {
+      if (
+        lastRequest === "logging/setLevel" &&
+        e instanceof McpError &&
+        e.code === ErrorCode.MethodNotFound
+      ) {
+        toast({
+          title: "Error",
+          description: `Server declares logging capability but doesn't implement method: "${lastRequest}"`,
+          variant: "destructive",
+        });
+      }
       console.error(e);
       setConnectionStatus("error");
     }
