@@ -780,7 +780,14 @@ const App = () => {
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div
+      style={{
+        height: "100vh",
+        width: "100vw",
+        display: "flex",
+        justifyContent: "space-between",
+      }}
+    >
       <div
         style={{
           width: sidebarWidth,

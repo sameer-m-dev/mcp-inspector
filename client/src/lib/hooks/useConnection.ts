@@ -285,7 +285,6 @@ export function useConnection({
   const checkProxyHealth = async () => {
     try {
       const proxyHealthUrl = new URL(`${getMCPProxyAddress(config)}/health`);
-      console.log("proxyHealthUrl", proxyHealthUrl);
       const { token: proxyAuthToken, header: proxyAuthTokenHeader } =
         getMCPProxyAuthToken(config);
       const headers: HeadersInit = {};
