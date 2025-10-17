@@ -1,4 +1,5 @@
 import { Button } from "./ui/button";
+import { Loader2 } from "lucide-react";
 
 type ListPaneProps<T> = {
   items: T[];
@@ -9,6 +10,7 @@ type ListPaneProps<T> = {
   title: string;
   buttonText: string;
   isButtonDisabled?: boolean;
+  isLoading?: boolean;
 };
 
 const ListPane = <T extends object>({
@@ -20,6 +22,7 @@ const ListPane = <T extends object>({
   title,
   buttonText,
   isButtonDisabled,
+  isLoading,
 }: ListPaneProps<T>) => (
   <div className="bg-card border border-border rounded-lg shadow">
     <div className="p-4 border-b border-gray-200 dark:border-border">
@@ -30,9 +33,16 @@ const ListPane = <T extends object>({
         variant="outline"
         className="w-full mb-4"
         onClick={listItems}
-        disabled={isButtonDisabled}
+        disabled={isButtonDisabled || isLoading}
       >
-        {buttonText}
+        {isLoading ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Loading...
+          </>
+        ) : (
+          buttonText
+        )}
       </Button>
       <Button
         variant="outline"

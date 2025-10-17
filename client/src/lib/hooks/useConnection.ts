@@ -348,6 +348,9 @@ export function useConnection({
   };
 
   const connect = async (_e?: unknown, retryCount: number = 0) => {
+    setConnectionStatus("connecting");
+    // Give React a chance to render the connecting state before heavy work
+    await new Promise((resolve) => setTimeout(resolve, 0));
     const client = new Client<Request, Notification, Result>(
       {
         name: "mcp-inspector",

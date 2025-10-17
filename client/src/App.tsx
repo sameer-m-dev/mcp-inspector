@@ -175,6 +175,8 @@ const App = () => {
   >();
   const [nextToolCursor, setNextToolCursor] = useState<string | undefined>();
   const progressTokenRef = useRef(0);
+  const [isListingTools, setIsListingTools] = useState(false);
+  const [isRunningTool, setIsRunningTool] = useState(false);
 
   const [activeTab, setActiveTab] = useState<string>(() => {
     const hash = window.location.hash.slice(1);
@@ -189,7 +191,7 @@ const App = () => {
     currentTabRef.current = activeTab;
   }, [activeTab]);
 
-  const { height: historyPaneHeight, handleDragStart } = useDraggablePane(300);
+  const { height: historyPaneHeight, handleDragStart } = useDraggablePane(150);
   const {
     width: sidebarWidth,
     isDragging: isSidebarDragging,
@@ -684,23 +686,29 @@ const App = () => {
   };
 
   const listTools = async () => {
-    const response = await sendMCPRequest(
-      {
-        method: "tools/list" as const,
-        params: nextToolCursor ? { cursor: nextToolCursor } : {},
-      },
-      ListToolsResultSchema,
-      "tools",
-    );
-    setTools(response.tools);
-    setNextToolCursor(response.nextCursor);
-    cacheToolOutputSchemas(response.tools);
+    try {
+      setIsListingTools(true);
+      const response = await sendMCPRequest(
+        {
+          method: "tools/list" as const,
+          params: nextToolCursor ? { cursor: nextToolCursor } : {},
+        },
+        ListToolsResultSchema,
+        "tools",
+      );
+      setTools(response.tools);
+      setNextToolCursor(response.nextCursor);
+      cacheToolOutputSchemas(response.tools);
+    } finally {
+      setIsListingTools(false);
+    }
   };
 
   const callTool = async (name: string, params: Record<string, unknown>) => {
     lastToolCallOriginTabRef.current = currentTabRef.current;
 
     try {
+      setIsRunningTool(true);
       const response = await sendMCPRequest(
         {
           method: "tools/call" as const,
@@ -728,6 +736,8 @@ const App = () => {
         isError: true,
       };
       setToolResult(toolResult);
+    } finally {
+      setIsRunningTool(false);
     }
   };
 
@@ -788,6 +798,17 @@ const App = () => {
         justifyContent: "space-between",
       }}
     >
+      {(connectionStatus === "connecting" ||
+        isListingTools ||
+        isRunningTool) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <img
+            src="/fynd_one_logo.gif"
+            alt="Loading"
+            className="h-24 w-24 object-contain"
+          />
+        </div>
+      )}
       <div
         style={{
           width: sidebarWidth,
@@ -1035,6 +1056,8 @@ const App = () => {
                         clearError("resources");
                         readResource(uri);
                       }}
+                      isListingTools={isListingTools}
+                      isRunningTool={isRunningTool}
                     />
                     <ConsoleTab />
                     <PingTab

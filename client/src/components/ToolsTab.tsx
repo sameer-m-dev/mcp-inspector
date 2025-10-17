@@ -38,6 +38,8 @@ const ToolsTab = ({
   nextCursor,
   resourceContent,
   onReadResource,
+  isListingTools,
+  isRunningTool,
 }: {
   tools: Tool[];
   listTools: () => void;
@@ -50,9 +52,10 @@ const ToolsTab = ({
   error: string | null;
   resourceContent: Record<string, string>;
   onReadResource?: (uri: string) => void;
+  isListingTools: boolean;
+  isRunningTool: boolean;
 }) => {
   const [params, setParams] = useState<Record<string, unknown>>({});
-  const [isToolRunning, setIsToolRunning] = useState(false);
   const [isOutputSchemaExpanded, setIsOutputSchemaExpanded] = useState(false);
   const [isMetaExpanded, setIsMetaExpanded] = useState(false);
 
@@ -92,6 +95,7 @@ const ToolsTab = ({
           title="Tools"
           buttonText={nextCursor ? "List More Tools" : "List Tools"}
           isButtonDisabled={!nextCursor && tools.length > 0}
+          isLoading={isListingTools}
         />
 
         <div className="bg-card border border-border rounded-lg shadow">
@@ -293,16 +297,11 @@ const ToolsTab = ({
                   )}
                 <Button
                   onClick={async () => {
-                    try {
-                      setIsToolRunning(true);
-                      await callTool(selectedTool.name, params);
-                    } finally {
-                      setIsToolRunning(false);
-                    }
+                    await callTool(selectedTool.name, params);
                   }}
-                  disabled={isToolRunning}
+                  disabled={isRunningTool}
                 >
-                  {isToolRunning ? (
+                  {isRunningTool ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Running...
