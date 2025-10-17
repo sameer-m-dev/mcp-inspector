@@ -805,7 +805,7 @@ const App = () => {
           <img
             src="/fynd_one_logo.gif"
             alt="Loading"
-            className="h-24 w-24 object-contain"
+            className="h-16 w-16 object-contain"
           />
         </div>
       )}
