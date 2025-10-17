@@ -177,6 +177,7 @@ const App = () => {
   const progressTokenRef = useRef(0);
   const [isListingTools, setIsListingTools] = useState(false);
   const [isRunningTool, setIsRunningTool] = useState(false);
+  // We'll compute loaderVisible later, after connectionStatus is defined
 
   const [activeTab, setActiveTab] = useState<string>(() => {
     const hash = window.location.hash.slice(1);
@@ -255,6 +256,26 @@ const App = () => {
     getRoots: () => rootsRef.current,
     defaultLoggingLevel: logLevel,
   });
+
+  const loaderVisible =
+    connectionStatus === "connecting" || isListingTools || isRunningTool;
+
+  // Notify parent window (when embedded in iframe) to show/hide a parent overlay
+  useEffect(() => {
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(
+          {
+            type: "MCP_INSPECTOR_LOADER",
+            visible: loaderVisible,
+          },
+          "*",
+        );
+      }
+    } catch {
+      // ignore cross-origin errors
+    }
+  }, [loaderVisible]);
 
   useEffect(() => {
     if (serverCapabilities) {
@@ -798,7 +819,8 @@ const App = () => {
         justifyContent: "space-between",
       }}
     >
-      {(connectionStatus === "connecting" ||
+      {/* BOLTIC: Change */}
+      {/* {(connectionStatus === "connecting" ||
         isListingTools ||
         isRunningTool) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
@@ -808,7 +830,7 @@ const App = () => {
             className="h-16 w-16 object-contain"
           />
         </div>
-      )}
+      )} */}
       <div
         style={{
           width: sidebarWidth,
