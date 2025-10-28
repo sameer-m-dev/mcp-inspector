@@ -510,7 +510,7 @@ const Sidebar = ({
                   }}
                 >
                   <RotateCcw className="w-4 h-4 mr-2" />
-                  "Reconnect"
+                  Reconnect
                 </Button>
                 <Button onClick={onDisconnect}>
                   <RefreshCwOff className="w-4 h-4 mr-2" />
