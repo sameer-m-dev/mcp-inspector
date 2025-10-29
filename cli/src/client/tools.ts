@@ -15,7 +15,7 @@ export async function listTools(client: Client): Promise<McpResponse> {
     return response;
   } catch (error) {
     throw new Error(
-      `Failed to list tools: ${error instanceof Error ? error.message : String(error)}`,
+      `Failed to list actions: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 }

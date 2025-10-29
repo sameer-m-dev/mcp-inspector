@@ -77,7 +77,7 @@ const ToolResults = ({
     if (!parsedResult.success) {
       return (
         <>
-          <h4 className="font-semibold mb-2">Invalid Tool Result:</h4>
+          <h4 className="font-semibold mb-2">Invalid Action Result:</h4>
           <JsonView data={toolResult} />
           <h4 className="font-semibold mb-2">Errors:</h4>
           {parsedResult.error.errors.map((error, idx) => (
@@ -124,7 +124,7 @@ const ToolResults = ({
     return (
       <>
         <h4 className="font-semibold mb-2">
-          Tool Result:{" "}
+          Action Result:{" "}
           {isError ? (
             <span className="text-red-600 font-semibold">Error</span>
           ) : (
@@ -235,7 +235,7 @@ const ToolResults = ({
   } else if ("toolResult" in toolResult) {
     return (
       <>
-        <h4 className="font-semibold mb-2">Tool Result (Legacy):</h4>
+        <h4 className="font-semibold mb-2">Action Result (Legacy):</h4>
         <JsonView data={toolResult.toolResult} />
       </>
     );

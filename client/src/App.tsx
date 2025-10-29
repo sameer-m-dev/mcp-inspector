@@ -916,7 +916,7 @@ const App = () => {
                   disabled={!serverCapabilities?.tools}
                 >
                   <Hammer className="w-4 h-4 mr-2" />
-                  Tools
+                  Actions
                 </TabsTrigger>
                 <TabsTrigger value="ping">
                   <Bell className="w-4 h-4 mr-2" />

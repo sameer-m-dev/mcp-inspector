@@ -92,8 +92,8 @@ const ToolsTab = ({
               </span>
             </div>
           )}
-          title="Tools"
-          buttonText={nextCursor ? "List More Tools" : "List Tools"}
+          title="Actions"
+          buttonText={nextCursor ? "List More Actions" : "List Actions"}
           isButtonDisabled={!nextCursor && tools.length > 0}
           isLoading={isListingTools}
         />
@@ -101,7 +101,7 @@ const ToolsTab = ({
         <div className="bg-card border border-border rounded-lg shadow">
           <div className="p-4 border-b border-gray-200 dark:border-border">
             <h3 className="font-semibold">
-              {selectedTool ? selectedTool.name : "Select a tool"}
+              {selectedTool ? selectedTool.name : "Select an action"}
             </h3>
           </div>
           <div className="p-4">
@@ -309,7 +309,7 @@ const ToolsTab = ({
                   ) : (
                     <>
                       <Send className="w-4 h-4 mr-2" />
-                      Run Tool
+                      Run Action
                     </>
                   )}
                 </Button>
@@ -323,7 +323,7 @@ const ToolsTab = ({
             ) : (
               <Alert>
                 <AlertDescription>
-                  Select a tool from the list to view its details and run it
+                  Select an action from the list to view its details and run it
                 </AlertDescription>
               </Alert>
             )}
